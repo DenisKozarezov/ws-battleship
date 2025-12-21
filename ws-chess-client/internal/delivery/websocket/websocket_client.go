@@ -63,7 +63,7 @@ func (c *WebsocketClient) Shutdown() error {
 	return c.conn.Close()
 }
 
-func (c *WebsocketClient) Messages() chan []byte {
+func (c *WebsocketClient) Messages() <-chan []byte {
 	return c.readCh
 }
 
@@ -77,7 +77,7 @@ func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websoc
 		case <-ctx.Done():
 			return
 		default:
-			messageType, payload, err := conn.ReadMessage()
+			_, payload, err := conn.ReadMessage()
 			if err != nil {
 				switch {
 				case websocket.IsUnexpectedCloseError(err,
@@ -94,7 +94,6 @@ func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websoc
 					return
 				}
 			}
-			c.logger.Infof("message type = %d, payload = %s", messageType, string(payload))
 			c.readCh <- payload
 		}
 	}

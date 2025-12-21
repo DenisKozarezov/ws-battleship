@@ -2,15 +2,17 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"sync"
 	"time"
 	"ws-chess-server/internal/config"
-	"ws-chess-server/internal/delivery/http/handlers"
 	"ws-chess-server/internal/delivery/http/middleware"
 	"ws-chess-server/internal/delivery/http/routers"
+	"ws-chess-server/internal/delivery/websocket/handlers"
+	"ws-chess-server/internal/delivery/websocket/response"
 	"ws-chess-server/internal/domain"
 
 	"github.com/gorilla/websocket"
@@ -94,13 +96,25 @@ func (a *App) handleConnections(ctx context.Context) {
 			return
 
 		// Register incoming clients, when they establish a connection.
-		case newClient := <-a.wsListener.RegisterChan():
-			a.RegisterNewClient(newClient)
+		case newClient, opened := <-a.wsListener.RegisterChan():
+			if opened {
+				a.RegisterNewClient(newClient)
+			}
 
 		case msg := <-a.wsListener.Messages():
-			a.logger.Infof("payload = %s", string(msg))
+			var event response.Response
+			if err := json.Unmarshal(msg, &event); err != nil {
+				a.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
+				continue
+			}
+
+			a.handleMessage(event)
 		}
 	}
+}
+
+func (a *App) handleMessage(event response.Response) {
+
 }
 
 func (a *App) pingClients(ctx context.Context) {
@@ -129,7 +143,7 @@ func (a *App) pingClients(ctx context.Context) {
 			}
 			a.mu.RUnlock()
 
-		// We must kick potentially dead clients who didn't response to our ping-messages. There are literally zero
+		// We must kick potentially dead clients who didn't response to our ping-message. There are literally zero
 		// reasons to keep stalled connections alive, so the server deallocates them for other needs.
 		case deadClient := <-deadClients:
 			a.logger.Infof("client '%s' didn't response to ping and was declared as potentially dead by the server, unregistering it...", deadClient.ID())
@@ -156,7 +170,10 @@ func (a *App) RegisterNewClient(conn *websocket.Conn) {
 
 	a.logger.Infof("client '%s' is now connected", newClient.ID())
 
-	_ = newClient.SendMessage([]byte("hello world"))
+	_ = newClient.SendMessage(response.Response{
+		Type:      "hello",
+		Timestamp: time.Now().Format(time.RFC3339),
+	})
 }
 
 func (a *App) UnregisterClient(client *domain.Client) error {
@@ -173,11 +190,7 @@ func (a *App) UnregisterClient(client *domain.Client) error {
 	return nil
 }
 
-func (a *App) Broadcast(msg []byte) {
-	if len(msg) == 0 {
-		return
-	}
-
-	a.logger.Debugf("sending a broadcast message to clients: '%s'", string(msg))
-	a.wsListener.Broadcast(msg)
+func (a *App) Broadcast(obj any) error {
+	a.logger.Debug("sending a broadcast message to clients")
+	return a.wsListener.Broadcast(obj)
 }

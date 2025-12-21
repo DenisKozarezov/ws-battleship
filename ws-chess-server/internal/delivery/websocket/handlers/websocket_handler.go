@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"ws-chess-server/internal/config"
 	"ws-chess-server/internal/delivery/http/middleware"
@@ -60,11 +61,11 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 	return nil
 }
 
-func (l *WebsocketListener) RegisterChan() chan *websocket.Conn {
+func (l *WebsocketListener) RegisterChan() <-chan *websocket.Conn {
 	return l.register
 }
 
-func (l *WebsocketListener) Messages() chan []byte {
+func (l *WebsocketListener) Messages() <-chan []byte {
 	return l.readCh
 }
 
@@ -117,6 +118,12 @@ func (l *WebsocketListener) handleWriteConnection(ctx context.Context, conn *web
 	}
 }
 
-func (l *WebsocketListener) Broadcast(msg []byte) {
-	l.writeCh <- msg
+func (l *WebsocketListener) Broadcast(obj any) error {
+	payload, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+
+	l.writeCh <- payload
+	return nil
 }

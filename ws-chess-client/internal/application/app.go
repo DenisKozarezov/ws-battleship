@@ -2,9 +2,11 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"ws-chess-client/internal/config"
-	client "ws-chess-client/internal/delivery/http"
 	"ws-chess-client/internal/delivery/http/middleware"
+	client "ws-chess-client/internal/delivery/websocket"
+	"ws-chess-client/internal/delivery/websocket/response"
 )
 
 type App struct {
@@ -31,6 +33,8 @@ func (a *App) Run(ctx context.Context) {
 		}
 	}()
 
+	go a.handleConnection(ctx)
+
 	<-ctx.Done()
 	a.logger.Info("received a signal to shutdown the client")
 
@@ -42,4 +46,29 @@ func (a *App) Run(ctx context.Context) {
 func (a *App) Shutdown() error {
 	a.logger.Info("shutting the client down...")
 	return a.client.Shutdown()
+}
+
+func (a *App) handleConnection(ctx context.Context) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-a.client.Messages():
+			var event response.Response
+			if err := json.Unmarshal(msg, &event); err != nil {
+				a.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
+				continue
+			}
+
+			a.handleMessage(event)
+		}
+	}
+}
+
+func (a *App) handleMessage(event response.Response) {
+	a.logger.Debugf("type=%s, timestamp=%s, payload=%s", event.Type, event.Timestamp, string(event.Data))
 }

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -43,8 +44,13 @@ func (c *Client) Ping() error {
 	return c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(pingTimeout))
 }
 
-func (c *Client) SendMessage(msg []byte) error {
-	return c.conn.WriteMessage(websocket.BinaryMessage, msg)
+func (c *Client) SendMessage(obj any) error {
+	payload, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+
+	return c.conn.WriteMessage(websocket.BinaryMessage, payload)
 }
 
 func (c *Client) Close() error {
