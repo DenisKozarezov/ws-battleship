@@ -7,10 +7,14 @@ import (
 )
 
 type Logger interface {
-	Printf(msg string, args ...any)
-	Println(args ...any)
+	Info(args ...any)
+	Infof(msg string, args ...any)
+	Fatal(args ...any)
 	Fatalf(msg string, args ...any)
-	Fatalln(args ...any)
+	Error(args ...any)
+	Errorf(msg string, args ...any)
+	Debug(args ...any)
+	Debugf(msg string, args ...any)
 }
 
 const (
@@ -23,7 +27,7 @@ func LoggerMiddleware(logger Logger, next http.HandlerFunc) http.HandlerFunc {
 		next.ServeHTTP(w, r)
 		elapsed := time.Since(now)
 
-		logger.Println(makePreAllocatedLog(r, elapsed))
+		logger.Info(makePreAllocatedLog(r, elapsed))
 	}
 }
 
@@ -35,7 +39,7 @@ func makePreAllocatedLog(r *http.Request, elapsed time.Duration) string {
 		urlLen += 1 + len(r.URL.RawQuery)
 	}
 
-	timeBuf := make([]byte, 0, 32)
+	timeBuf := make([]byte, 0, 16)
 	timeBuf = strconv.AppendFloat(timeBuf, elapsed.Seconds(), 'f', 3, 64)
 
 	totalSize := 2 + len(r.Method) + // "[" + GET + "]"

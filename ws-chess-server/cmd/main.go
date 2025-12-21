@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,12 +14,13 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill, syscall.SIGINT, syscall.SIGKILL)
 	defer cancel()
 
-	logger := log.Default()
+	logger := application.NewDefaultLogger()
 
 	cfg, err := config.NewConfig()
 	if err != nil {
 		logger.Fatalf("failed to parse a config: %s", err)
 	}
+	logger.SetDebugMode(cfg.App.IsDebugMode)
 
 	app := application.NewApp(&cfg.App, logger)
 

@@ -1,9 +1,9 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 	"ws-chess-server/internal/config"
+	"ws-chess-server/internal/delivery/http/middleware"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,25 +14,34 @@ const (
 )
 
 type WebsocketListener struct {
-	upgrader   *websocket.Upgrader
-	register   chan *websocket.Conn
-	unregister chan *websocket.Conn
+	upgrader        *websocket.Upgrader
+	logger          middleware.Logger
+	register        chan *websocket.Conn
+	readCh, writeCh chan []byte
 }
 
-func NewWebsocketListener(cfg *config.AppConfig) *WebsocketListener {
+func NewWebsocketListener(cfg *config.AppConfig, logger middleware.Logger) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
 		ReadBufferSize:  readBufferBytesMax,
 		WriteBufferSize: writeBufferBytesMax,
 		CheckOrigin: func(r *http.Request) bool {
-			return !cfg.IsDebugMode
+			return true
 		},
 	}
 
 	return &WebsocketListener{
-		upgrader:   &websocketUpgrader,
-		register:   make(chan *websocket.Conn),
-		unregister: make(chan *websocket.Conn),
+		upgrader: &websocketUpgrader,
+		logger:   logger,
+		register: make(chan *websocket.Conn, 10),
+		readCh:   make(chan []byte, readBufferBytesMax),
+		writeCh:  make(chan []byte, writeBufferBytesMax),
 	}
+}
+
+func (l *WebsocketListener) Close() {
+	close(l.readCh)
+	close(l.writeCh)
+	close(l.register)
 }
 
 func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *http.Request) error {
@@ -40,22 +49,47 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 	if err != nil {
 		return nil
 	}
-	defer conn.Close()
 
 	l.register <- conn
 
-	go l.handleReadWS(conn)
+	go l.handleReadConnection(conn)
+	go l.handleWriteConnection(conn)
 
 	return nil
 }
 
-func (l *WebsocketListener) handleReadWS(conn *websocket.Conn) {
+func (l *WebsocketListener) RegisterChan() chan *websocket.Conn {
+	return l.register
+}
+
+func (l *WebsocketListener) handleReadConnection(conn *websocket.Conn) {
 	for {
 		messageType, payload, err := conn.ReadMessage()
 		if err != nil {
-			return
+			switch {
+			case websocket.IsUnexpectedCloseError(err,
+				websocket.CloseGoingAway,
+				websocket.CloseAbnormalClosure,
+				websocket.CloseNormalClosure):
+				l.logger.Errorf("failed to read a message: %s", err)
+				return
+			case websocket.IsUnexpectedCloseError(err, websocket.CloseMessage):
+				l.logger.Info("received a close signal from the client")
+				return
+			default:
+				l.logger.Errorf("unknown error while reading message: %s", err)
+				return
+			}
 		}
-		log.Printf("message type = %d, text = %s", messageType, string(payload))
-		// обработка сообщения...
+		l.logger.Infof("message type = %d, payload = %s", messageType, string(payload))
+		l.readCh <- payload
+	}
+}
+
+func (l *WebsocketListener) handleWriteConnection(conn *websocket.Conn) {
+	for msg := range l.writeCh {
+		if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+			l.logger.Errorf("failed to send a message: %s", err)
+		}
 	}
 }

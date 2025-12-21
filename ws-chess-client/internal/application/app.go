@@ -14,7 +14,7 @@ type App struct {
 }
 
 func NewApp(cfg *config.AppConfig, logger middleware.Logger) *App {
-	client := client.NewClient(cfg)
+	client := client.NewClient(cfg, logger)
 
 	return &App{
 		cfg:    cfg,
@@ -24,7 +24,7 @@ func NewApp(cfg *config.AppConfig, logger middleware.Logger) *App {
 }
 
 func (a *App) Run(ctx context.Context) {
-	a.logger.Printf("connecting to server :%s", a.cfg.ServerPort)
+	a.logger.Infof("connecting to server %s", a.cfg.ServerPort)
 	go func() {
 		if err := a.client.Connect(ctx); err != nil {
 			a.logger.Fatalf("failed to connect to server: %s", err)
@@ -32,7 +32,7 @@ func (a *App) Run(ctx context.Context) {
 	}()
 
 	<-ctx.Done()
-	a.logger.Println("received a signal to shutdown the server")
+	a.logger.Info("received a signal to shutdown the client")
 
 	if err := a.Shutdown(); err != nil {
 		a.logger.Fatalf("failed to shutdown a client: %s", err)
@@ -40,6 +40,6 @@ func (a *App) Run(ctx context.Context) {
 }
 
 func (a *App) Shutdown() error {
-	a.logger.Println("shutting the client down...")
+	a.logger.Info("shutting the client down...")
 	return a.client.Shutdown()
 }
