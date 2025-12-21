@@ -9,7 +9,7 @@ import (
 
 type App struct {
 	cfg    *config.AppConfig
-	client *client.Client
+	client *client.WebsocketClient
 	logger middleware.Logger
 }
 
@@ -24,7 +24,7 @@ func NewApp(cfg *config.AppConfig, logger middleware.Logger) *App {
 }
 
 func (a *App) Run(ctx context.Context) {
-	a.logger.Infof("connecting to server %s", a.cfg.ServerPort)
+	a.logger.Infof("connecting to server %s", a.cfg.ServerHost)
 	go func() {
 		if err := a.client.Connect(ctx); err != nil {
 			a.logger.Fatalf("failed to connect to server: %s", err)

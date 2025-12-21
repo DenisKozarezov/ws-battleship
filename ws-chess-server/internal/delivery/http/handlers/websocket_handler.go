@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"ws-chess-server/internal/config"
 	"ws-chess-server/internal/delivery/http/middleware"
@@ -25,14 +26,14 @@ func NewWebsocketListener(cfg *config.AppConfig, logger middleware.Logger) *Webs
 		ReadBufferSize:  readBufferBytesMax,
 		WriteBufferSize: writeBufferBytesMax,
 		CheckOrigin: func(r *http.Request) bool {
-			return true
+			return cfg.IsDebugMode
 		},
 	}
 
 	return &WebsocketListener{
 		upgrader: &websocketUpgrader,
 		logger:   logger,
-		register: make(chan *websocket.Conn, 10),
+		register: make(chan *websocket.Conn, cfg.ClientsConnectionsMax),
 		readCh:   make(chan []byte, readBufferBytesMax),
 		writeCh:  make(chan []byte, writeBufferBytesMax),
 	}
@@ -52,8 +53,9 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 
 	l.register <- conn
 
-	go l.handleReadConnection(conn)
-	go l.handleWriteConnection(conn)
+	ctx := r.Context()
+	go l.handleReadConnection(ctx, conn)
+	go l.handleWriteConnection(ctx, conn)
 
 	return nil
 }
@@ -62,34 +64,59 @@ func (l *WebsocketListener) RegisterChan() chan *websocket.Conn {
 	return l.register
 }
 
-func (l *WebsocketListener) handleReadConnection(conn *websocket.Conn) {
+func (l *WebsocketListener) Messages() chan []byte {
+	return l.readCh
+}
+
+func (l *WebsocketListener) handleReadConnection(ctx context.Context, conn *websocket.Conn) {
 	for {
-		messageType, payload, err := conn.ReadMessage()
-		if err != nil {
-			switch {
-			case websocket.IsUnexpectedCloseError(err,
-				websocket.CloseGoingAway,
-				websocket.CloseAbnormalClosure,
-				websocket.CloseNormalClosure):
-				l.logger.Errorf("failed to read a message: %s", err)
-				return
-			case websocket.IsUnexpectedCloseError(err, websocket.CloseMessage):
-				l.logger.Info("received a close signal from the client")
-				return
-			default:
-				l.logger.Errorf("unknown error while reading message: %s", err)
-				return
-			}
+		if err := ctx.Err(); err != nil {
+			return
 		}
-		l.logger.Infof("message type = %d, payload = %s", messageType, string(payload))
-		l.readCh <- payload
+
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			_, payload, err := conn.ReadMessage()
+			if err != nil {
+				switch {
+				case websocket.IsUnexpectedCloseError(err,
+					websocket.CloseGoingAway,
+					websocket.CloseAbnormalClosure,
+					websocket.CloseNormalClosure):
+					l.logger.Errorf("failed to read a message: %s", err)
+					return
+				case websocket.IsUnexpectedCloseError(err, websocket.CloseMessage):
+					l.logger.Info("received a close signal from the client")
+					return
+				default:
+					l.logger.Errorf("unknown error while reading message: %s", err)
+					return
+				}
+			}
+			l.readCh <- payload
+		}
 	}
 }
 
-func (l *WebsocketListener) handleWriteConnection(conn *websocket.Conn) {
-	for msg := range l.writeCh {
-		if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
-			l.logger.Errorf("failed to send a message: %s", err)
+func (l *WebsocketListener) handleWriteConnection(ctx context.Context, conn *websocket.Conn) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case msg := <-l.writeCh:
+			if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+				l.logger.Errorf("failed to send a message: %s", err)
+			}
 		}
 	}
+}
+
+func (l *WebsocketListener) Broadcast(msg []byte) {
+	l.writeCh <- msg
 }
