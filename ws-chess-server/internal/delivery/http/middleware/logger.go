@@ -4,24 +4,14 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+	"ws-chess-server/pkg/logger"
 )
-
-type Logger interface {
-	Info(args ...any)
-	Infof(msg string, args ...any)
-	Fatal(args ...any)
-	Fatalf(msg string, args ...any)
-	Error(args ...any)
-	Errorf(msg string, args ...any)
-	Debug(args ...any)
-	Debugf(msg string, args ...any)
-}
 
 const (
 	separator = "  |  "
 )
 
-func LoggerMiddleware(logger Logger, next http.HandlerFunc) http.HandlerFunc {
+func LoggerMiddleware(logger logger.Logger, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		now := time.Now()
 		next.ServeHTTP(w, r)

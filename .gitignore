@@ -1,6 +1,13 @@
+# ignore IDEA folders
 .vscode
 .idea
 
+[Tt]emp
+[Bb]uild
+
+# ignore credentials
 .env
 
+# ignore executables
+*.bin
 *.exe

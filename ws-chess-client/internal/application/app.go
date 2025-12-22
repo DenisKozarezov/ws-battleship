@@ -3,18 +3,18 @@ package application
 import (
 	"context"
 	"ws-chess-client/internal/config"
-	"ws-chess-client/internal/delivery/http/middleware"
 	client "ws-chess-client/internal/delivery/websocket"
 	"ws-chess-client/internal/delivery/websocket/response"
+	"ws-chess-client/pkg/logger"
 )
 
 type App struct {
 	cfg    *config.AppConfig
 	client *client.WebsocketClient
-	logger middleware.Logger
+	logger logger.Logger
 }
 
-func NewApp(cfg *config.AppConfig, logger middleware.Logger) *App {
+func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
 	client := client.NewClient(cfg, logger)
 
 	return &App{

@@ -1,15 +1,20 @@
-package application
+package logger
 
-import "log"
+import (
+	"log"
+)
 
 type DefaultLogger struct {
 	isDebugMode bool
 	logger      *log.Logger
 }
 
-func NewDefaultLogger() *DefaultLogger {
-	return &DefaultLogger{logger: log.Default()}
+func NewDefaultLogger(prefix string) *DefaultLogger {
+	logger := log.New(log.Writer(), prefix+" ", log.LstdFlags)
+	return &DefaultLogger{logger: logger}
 }
+
+func (l *DefaultLogger) Close() {}
 
 func (l *DefaultLogger) SetDebugMode(mode bool) {
 	l.isDebugMode = mode

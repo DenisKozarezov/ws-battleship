@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"ws-chess-server/internal/config"
-	"ws-chess-server/internal/delivery/http/middleware"
 	"ws-chess-server/internal/delivery/websocket/response"
 	"ws-chess-server/internal/domain"
+	"ws-chess-server/pkg/logger"
 
 	"github.com/gorilla/websocket"
 )
@@ -18,14 +18,14 @@ const (
 
 type WebsocketListener struct {
 	upgrader *websocket.Upgrader
-	logger   middleware.Logger
+	logger   logger.Logger
 	joinCh   chan *domain.Client
 	readCh   chan response.Event
 	closeCh  chan struct{}
 	writeCh  chan []byte
 }
 
-func NewWebsocketListener(cfg *config.AppConfig, logger middleware.Logger) *WebsocketListener {
+func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
 		ReadBufferSize:  readBufferBytesMax,
 		WriteBufferSize: writeBufferBytesMax,

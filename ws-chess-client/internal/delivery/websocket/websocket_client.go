@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"time"
 	"ws-chess-client/internal/config"
-	"ws-chess-client/internal/delivery/http/middleware"
 	"ws-chess-client/internal/delivery/websocket/response"
+	"ws-chess-client/pkg/logger"
 
 	"github.com/gorilla/websocket"
 )
@@ -23,12 +23,12 @@ const (
 
 type WebsocketClient struct {
 	cfg    *config.AppConfig
-	logger middleware.Logger
+	logger logger.Logger
 	conn   *websocket.Conn
 	readCh chan response.Event
 }
 
-func NewClient(cfg *config.AppConfig, logger middleware.Logger) *WebsocketClient {
+func NewClient(cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
 	return &WebsocketClient{
 		cfg:    cfg,
 		logger: logger,

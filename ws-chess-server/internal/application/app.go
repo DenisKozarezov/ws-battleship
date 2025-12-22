@@ -3,30 +3,29 @@ package application
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"sync"
 	"time"
 	"ws-chess-server/internal/config"
-	"ws-chess-server/internal/delivery/http/middleware"
 	"ws-chess-server/internal/delivery/http/routers"
 	"ws-chess-server/internal/delivery/websocket/handlers"
 	"ws-chess-server/internal/delivery/websocket/response"
 	"ws-chess-server/internal/domain"
+	"ws-chess-server/pkg/logger"
 )
 
 type App struct {
 	cfg        *config.AppConfig
 	httpServer *http.Server
 	wsListener *handlers.WebsocketListener
-	logger     middleware.Logger
+	logger     logger.Logger
 
 	mu      sync.RWMutex
 	clients map[string]*domain.Client
 }
 
-func NewApp(cfg *config.AppConfig, logger middleware.Logger) *App {
+func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
 	return &App{
 		cfg:        cfg,
 		logger:     logger,
@@ -106,7 +105,7 @@ func (a *App) handleConnections(ctx context.Context) {
 }
 
 func (a *App) handleMessage(event response.Event) {
-	log.Println(event)
+
 }
 
 func (a *App) pingClients(ctx context.Context) {

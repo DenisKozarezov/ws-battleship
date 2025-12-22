@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"ws-chess-server/internal/delivery/http/middleware"
 	"ws-chess-server/internal/delivery/http/response"
+	"ws-chess-server/pkg/logger"
 )
 
 type Handler = func(w http.ResponseWriter, req *http.Request) error
@@ -20,11 +21,11 @@ type Router interface {
 type DefaultRouter struct {
 	http.Handler
 
-	logger   middleware.Logger
+	logger   logger.Logger
 	listener *http.ServeMux
 }
 
-func NewDefaultRouter(logger middleware.Logger) *DefaultRouter {
+func NewDefaultRouter(logger logger.Logger) *DefaultRouter {
 	mux := http.NewServeMux()
 
 	return &DefaultRouter{
