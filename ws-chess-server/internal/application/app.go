@@ -2,8 +2,8 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -14,8 +14,6 @@ import (
 	"ws-chess-server/internal/delivery/websocket/handlers"
 	"ws-chess-server/internal/delivery/websocket/response"
 	"ws-chess-server/internal/domain"
-
-	"github.com/gorilla/websocket"
 )
 
 type App struct {
@@ -65,7 +63,7 @@ func (a *App) Run(ctx context.Context, router routers.Router) {
 	if err := a.Shutdown(); err != nil {
 		a.logger.Fatalf("failed to shutdown a server: %s", err)
 	}
-	a.logger.Infof("server :%s was gracefully shutdown", a.cfg.Port)
+	a.logger.Infof("server :%s is gracefully shutdown", a.cfg.Port)
 }
 
 func (a *App) Shutdown() error {
@@ -96,25 +94,19 @@ func (a *App) handleConnections(ctx context.Context) {
 			return
 
 		// Register incoming clients, when they establish a connection.
-		case newClient, opened := <-a.wsListener.RegisterChan():
+		case newClient, opened := <-a.wsListener.JoinChan():
 			if opened {
 				a.RegisterNewClient(newClient)
 			}
 
 		case msg := <-a.wsListener.Messages():
-			var event response.Response
-			if err := json.Unmarshal(msg, &event); err != nil {
-				a.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
-				continue
-			}
-
-			a.handleMessage(event)
+			a.handleMessage(msg)
 		}
 	}
 }
 
-func (a *App) handleMessage(event response.Response) {
-
+func (a *App) handleMessage(event response.Event) {
+	log.Println(event)
 }
 
 func (a *App) pingClients(ctx context.Context) {
@@ -161,19 +153,12 @@ func (a *App) pingClient(client *domain.Client, deadClients chan<- *domain.Clien
 	}
 }
 
-func (a *App) RegisterNewClient(conn *websocket.Conn) {
-	newClient := domain.NewClient(conn)
-
+func (a *App) RegisterNewClient(newClient *domain.Client) {
 	a.mu.Lock()
 	a.clients[newClient.ID()] = newClient
 	a.mu.Unlock()
 
-	a.logger.Infof("client '%s' is now connected", newClient.ID())
-
-	_ = newClient.SendMessage(response.Response{
-		Type:      "hello",
-		Timestamp: time.Now().Format(time.RFC3339),
-	})
+	a.logger.Infof("client %s is now connected", newClient.String())
 }
 
 func (a *App) UnregisterClient(client *domain.Client) error {
@@ -185,7 +170,7 @@ func (a *App) UnregisterClient(client *domain.Client) error {
 	delete(a.clients, client.ID())
 	a.mu.Unlock()
 
-	a.logger.Infof("client '%s' was unregistered", client.ID())
+	a.logger.Infof("client id=%s was unregistered", client.ID())
 
 	return nil
 }

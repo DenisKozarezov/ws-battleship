@@ -1,11 +1,12 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"ws-chess-server/internal/config"
 	"ws-chess-server/internal/delivery/http/middleware"
+	"ws-chess-server/internal/delivery/websocket/response"
+	"ws-chess-server/internal/domain"
 
 	"github.com/gorilla/websocket"
 )
@@ -16,10 +17,12 @@ const (
 )
 
 type WebsocketListener struct {
-	upgrader        *websocket.Upgrader
-	logger          middleware.Logger
-	register        chan *websocket.Conn
-	readCh, writeCh chan []byte
+	upgrader *websocket.Upgrader
+	logger   middleware.Logger
+	joinCh   chan *domain.Client
+	readCh   chan response.Event
+	closeCh  chan struct{}
+	writeCh  chan []byte
 }
 
 func NewWebsocketListener(cfg *config.AppConfig, logger middleware.Logger) *WebsocketListener {
@@ -34,16 +37,16 @@ func NewWebsocketListener(cfg *config.AppConfig, logger middleware.Logger) *Webs
 	return &WebsocketListener{
 		upgrader: &websocketUpgrader,
 		logger:   logger,
-		register: make(chan *websocket.Conn, cfg.ClientsConnectionsMax),
-		readCh:   make(chan []byte, readBufferBytesMax),
+		joinCh:   make(chan *domain.Client, cfg.ClientsConnectionsMax),
+		readCh:   make(chan response.Event, readBufferBytesMax),
 		writeCh:  make(chan []byte, writeBufferBytesMax),
+		closeCh:  make(chan struct{}),
 	}
 }
 
 func (l *WebsocketListener) Close() {
-	close(l.readCh)
-	close(l.writeCh)
-	close(l.register)
+	close(l.closeCh)
+	close(l.joinCh)
 }
 
 func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *http.Request) error {
@@ -52,33 +55,39 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 		return nil
 	}
 
-	l.register <- conn
+	newClient := domain.NewClient(conn, domain.ParseClientMetadata(r))
+	l.joinCh <- newClient
 
-	ctx := r.Context()
-	go l.handleReadConnection(ctx, conn)
-	go l.handleWriteConnection(ctx, conn)
+	go l.handleReadConnection(conn)
+	go l.handleWriteConnection(conn)
 
 	return nil
 }
 
-func (l *WebsocketListener) RegisterChan() <-chan *websocket.Conn {
-	return l.register
+func (l *WebsocketListener) JoinChan() <-chan *domain.Client {
+	return l.joinCh
 }
 
-func (l *WebsocketListener) Messages() <-chan []byte {
+func (l *WebsocketListener) Messages() <-chan response.Event {
 	return l.readCh
 }
 
-func (l *WebsocketListener) handleReadConnection(ctx context.Context, conn *websocket.Conn) {
-	for {
-		if err := ctx.Err(); err != nil {
-			return
-		}
+func (l *WebsocketListener) handleReadConnection(conn *websocket.Conn) {
+	defer close(l.readCh)
 
+	for {
 		select {
-		case <-ctx.Done():
+		case <-l.closeCh:
+			l.logger.Info("listener received a closing signal, stopping reading messages...")
 			return
 		default:
+			select {
+			case <-l.closeCh:
+				l.logger.Info("listener received a closing signal, stopping reading messages...")
+				return
+			default:
+			}
+
 			_, payload, err := conn.ReadMessage()
 			if err != nil {
 				switch {
@@ -96,21 +105,34 @@ func (l *WebsocketListener) handleReadConnection(ctx context.Context, conn *webs
 					return
 				}
 			}
-			l.readCh <- payload
+
+			var event response.Event
+			if err := json.Unmarshal(payload, &event); err != nil {
+				l.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
+				continue
+			}
+
+			l.readCh <- event
 		}
 	}
 }
 
-func (l *WebsocketListener) handleWriteConnection(ctx context.Context, conn *websocket.Conn) {
-	for {
-		if err := ctx.Err(); err != nil {
-			return
-		}
+func (l *WebsocketListener) handleWriteConnection(conn *websocket.Conn) {
+	defer close(l.writeCh)
 
+	for {
 		select {
-		case <-ctx.Done():
+		case <-l.closeCh:
+			l.logger.Info("listener received a closing signal, stopping writing messages...")
 			return
 		case msg := <-l.writeCh:
+			select {
+			case <-l.closeCh:
+				l.logger.Info("listener received a closing signal, stopping reading messages...")
+				return
+			default:
+			}
+
 			if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
 				l.logger.Errorf("failed to send a message: %s", err)
 			}

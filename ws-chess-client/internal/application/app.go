@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"ws-chess-client/internal/config"
 	"ws-chess-client/internal/delivery/http/middleware"
 	client "ws-chess-client/internal/delivery/websocket"
@@ -58,17 +57,11 @@ func (a *App) handleConnection(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg := <-a.client.Messages():
-			var event response.Response
-			if err := json.Unmarshal(msg, &event); err != nil {
-				a.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
-				continue
-			}
-
-			a.handleMessage(event)
+			a.handleMessage(msg)
 		}
 	}
 }
 
-func (a *App) handleMessage(event response.Response) {
-	a.logger.Debugf("type=%s, timestamp=%s, payload=%s", event.Type, event.Timestamp, string(event.Data))
+func (a *App) handleMessage(event response.Event) {
+
 }

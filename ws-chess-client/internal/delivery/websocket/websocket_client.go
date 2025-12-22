@@ -2,10 +2,13 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 	"ws-chess-client/internal/config"
 	"ws-chess-client/internal/delivery/http/middleware"
+	"ws-chess-client/internal/delivery/websocket/response"
 
 	"github.com/gorilla/websocket"
 )
@@ -22,14 +25,14 @@ type WebsocketClient struct {
 	cfg    *config.AppConfig
 	logger middleware.Logger
 	conn   *websocket.Conn
-	readCh chan []byte
+	readCh chan response.Event
 }
 
 func NewClient(cfg *config.AppConfig, logger middleware.Logger) *WebsocketClient {
 	return &WebsocketClient{
 		cfg:    cfg,
 		logger: logger,
-		readCh: make(chan []byte, readBufferBytesMax),
+		readCh: make(chan response.Event, readBufferBytesMax),
 	}
 }
 
@@ -42,7 +45,10 @@ func (c *WebsocketClient) Connect(ctx context.Context) error {
 
 	serverUrl := fmt.Sprintf("%s://%s%s", websocketProtocol, c.cfg.ServerHost, websocketEndpoint)
 
-	conn, _, err := dialer.DialContext(ctx, serverUrl, nil)
+	headers := make(http.Header)
+	headers.Set("X-Nickname", "player123")
+
+	conn, _, err := dialer.DialContext(ctx, serverUrl, headers)
 	if err != nil {
 		return fmt.Errorf("failed to dial: %w", err)
 	}
@@ -59,15 +65,16 @@ func (c *WebsocketClient) Connect(ctx context.Context) error {
 }
 
 func (c *WebsocketClient) Shutdown() error {
-	close(c.readCh)
 	return c.conn.Close()
 }
 
-func (c *WebsocketClient) Messages() <-chan []byte {
+func (c *WebsocketClient) Messages() <-chan response.Event {
 	return c.readCh
 }
 
 func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websocket.Conn) {
+	defer close(c.readCh)
+
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -94,7 +101,14 @@ func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websoc
 					return
 				}
 			}
-			c.readCh <- payload
+
+			var event response.Event
+			if err := json.Unmarshal(payload, &event); err != nil {
+				c.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
+				continue
+			}
+
+			c.readCh <- event
 		}
 	}
 }
