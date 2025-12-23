@@ -1,8 +1,13 @@
 package logger
 
-import "ws-chess-client/internal/config"
+import (
+	"io"
+	"ws-chess-client/internal/config"
+)
 
 type Logger interface {
+	io.Closer
+
 	Info(args ...any)
 	Infof(msg string, args ...any)
 	Fatal(args ...any)
@@ -12,7 +17,6 @@ type Logger interface {
 	Debug(args ...any)
 	Debugf(msg string, args ...any)
 	SetDebugMode(isDebugMode bool)
-	Close()
 }
 
 func NewLogger(cfg *config.AppConfig, prefix string) Logger {

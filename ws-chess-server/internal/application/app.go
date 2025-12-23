@@ -10,7 +10,6 @@ import (
 	"ws-chess-server/internal/config"
 	"ws-chess-server/internal/delivery/http/routers"
 	"ws-chess-server/internal/delivery/websocket/handlers"
-	"ws-chess-server/internal/delivery/websocket/response"
 	"ws-chess-server/internal/domain"
 	"ws-chess-server/pkg/logger"
 )
@@ -25,11 +24,11 @@ type App struct {
 	clients map[string]*domain.Client
 }
 
-func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
+func NewApp(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *App {
 	return &App{
 		cfg:        cfg,
 		logger:     logger,
-		wsListener: handlers.NewWebsocketListener(cfg, logger),
+		wsListener: handlers.NewWebsocketListener(ctx, cfg, logger),
 		clients:    make(map[string]*domain.Client, cfg.ClientsConnectionsMax),
 	}
 }
@@ -74,6 +73,7 @@ func (a *App) Shutdown() error {
 			a.logger.Errorf("failed to unregister a client: %s", err)
 		}
 	}
+	a.wsListener.WaitForAllConnections()
 
 	return a.httpServer.Close()
 }
@@ -104,7 +104,7 @@ func (a *App) handleConnections(ctx context.Context) {
 	}
 }
 
-func (a *App) handleMessage(event response.Event) {
+func (a *App) handleMessage(event domain.Event) {
 
 }
 
@@ -137,7 +137,7 @@ func (a *App) pingClients(ctx context.Context) {
 		// We must kick potentially dead clients who didn't response to our ping-message. There are literally zero
 		// reasons to keep stalled connections alive, so the server deallocates them for other needs.
 		case deadClient := <-deadClients:
-			a.logger.Infof("client '%s' didn't response to ping and was declared as potentially dead by the server, unregistering it...", deadClient.ID())
+			a.logger.Infof("client %s didn't response to ping and was declared as potentially dead by the server, unregistering it...", deadClient.String())
 			if err := a.UnregisterClient(deadClient); err != nil {
 				a.logger.Errorf("failed to disconnect a dead client: %s", err)
 			}
@@ -174,7 +174,16 @@ func (a *App) UnregisterClient(client *domain.Client) error {
 	return nil
 }
 
-func (a *App) Broadcast(obj any) error {
-	a.logger.Debug("sending a broadcast message to clients")
-	return a.wsListener.Broadcast(obj)
+func (a *App) Broadcast(obj any) {
+	a.logger.Debug("sending a broadcast message to clients...")
+
+	a.mu.RLock()
+	for _, client := range a.clients {
+		go func() {
+			if err := client.SendMessage(obj); err != nil {
+				a.logger.Errorf("failed to send a broadcast message to client id=%s", client.ID())
+			}
+		}()
+	}
+	a.mu.RUnlock()
 }

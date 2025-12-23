@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
+	"sync"
 	"ws-chess-server/internal/config"
-	"ws-chess-server/internal/delivery/websocket/response"
 	"ws-chess-server/internal/domain"
 	"ws-chess-server/pkg/logger"
 
@@ -18,14 +18,16 @@ const (
 
 type WebsocketListener struct {
 	upgrader *websocket.Upgrader
-	logger   logger.Logger
-	joinCh   chan *domain.Client
-	readCh   chan response.Event
-	closeCh  chan struct{}
-	writeCh  chan []byte
+	wg       sync.WaitGroup
+	ctx      context.Context
+	cancel   context.CancelFunc
+
+	logger logger.Logger
+	joinCh chan *domain.Client
+	readCh chan domain.Event
 }
 
-func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger) *WebsocketListener {
+func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
 		ReadBufferSize:  readBufferBytesMax,
 		WriteBufferSize: writeBufferBytesMax,
@@ -34,19 +36,29 @@ func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger) *Websocke
 		},
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+
 	return &WebsocketListener{
 		upgrader: &websocketUpgrader,
+		ctx:      ctx,
+		cancel:   cancel,
 		logger:   logger,
 		joinCh:   make(chan *domain.Client, cfg.ClientsConnectionsMax),
-		readCh:   make(chan response.Event, readBufferBytesMax),
-		writeCh:  make(chan []byte, writeBufferBytesMax),
-		closeCh:  make(chan struct{}),
+		readCh:   make(chan domain.Event, readBufferBytesMax),
 	}
 }
 
 func (l *WebsocketListener) Close() {
-	close(l.closeCh)
+	l.cancel()
+
 	close(l.joinCh)
+	close(l.readCh)
+
+	l.logger.Info("websocket listener is closed")
+}
+
+func (l *WebsocketListener) WaitForAllConnections() {
+	l.wg.Wait()
 }
 
 func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *http.Request) error {
@@ -55,11 +67,14 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 		return nil
 	}
 
-	newClient := domain.NewClient(conn, domain.ParseClientMetadata(r))
+	newClient := domain.NewClient(conn, l.logger, domain.ParseClientMetadata(r))
 	l.joinCh <- newClient
 
-	go l.handleReadConnection(conn)
-	go l.handleWriteConnection(conn)
+	l.wg.Add(1)
+	l.wg.Go(func() {
+		defer l.wg.Done()
+		newClient.ReadMessage(l.ctx, l.readCh)
+	})
 
 	return nil
 }
@@ -68,84 +83,6 @@ func (l *WebsocketListener) JoinChan() <-chan *domain.Client {
 	return l.joinCh
 }
 
-func (l *WebsocketListener) Messages() <-chan response.Event {
+func (l *WebsocketListener) Messages() <-chan domain.Event {
 	return l.readCh
-}
-
-func (l *WebsocketListener) handleReadConnection(conn *websocket.Conn) {
-	defer close(l.readCh)
-
-	for {
-		select {
-		case <-l.closeCh:
-			l.logger.Info("listener received a closing signal, stopping reading messages...")
-			return
-		default:
-			select {
-			case <-l.closeCh:
-				l.logger.Info("listener received a closing signal, stopping reading messages...")
-				return
-			default:
-			}
-
-			_, payload, err := conn.ReadMessage()
-			if err != nil {
-				switch {
-				case websocket.IsUnexpectedCloseError(err,
-					websocket.CloseGoingAway,
-					websocket.CloseAbnormalClosure,
-					websocket.CloseNormalClosure):
-					l.logger.Errorf("failed to read a message: %s", err)
-					return
-				case websocket.IsUnexpectedCloseError(err, websocket.CloseMessage):
-					l.logger.Info("received a close signal from the client")
-					return
-				default:
-					l.logger.Errorf("unknown error while reading message: %s", err)
-					return
-				}
-			}
-
-			var event response.Event
-			if err := json.Unmarshal(payload, &event); err != nil {
-				l.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
-				continue
-			}
-
-			l.readCh <- event
-		}
-	}
-}
-
-func (l *WebsocketListener) handleWriteConnection(conn *websocket.Conn) {
-	defer close(l.writeCh)
-
-	for {
-		select {
-		case <-l.closeCh:
-			l.logger.Info("listener received a closing signal, stopping writing messages...")
-			return
-		case msg := <-l.writeCh:
-			select {
-			case <-l.closeCh:
-				l.logger.Info("listener received a closing signal, stopping reading messages...")
-				return
-			default:
-			}
-
-			if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
-				l.logger.Errorf("failed to send a message: %s", err)
-			}
-		}
-	}
-}
-
-func (l *WebsocketListener) Broadcast(obj any) error {
-	payload, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	l.writeCh <- payload
-	return nil
 }

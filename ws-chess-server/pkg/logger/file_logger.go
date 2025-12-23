@@ -26,14 +26,14 @@ type FileLogger struct {
 
 func NewFileLogger(prefix string) *FileLogger {
 	if _, err := os.Stat(tempFolderName); os.IsNotExist(err) {
-		os.Mkdir(tempFolderName, 0755)
+		_ = os.Mkdir(tempFolderName, 0755)
 	}
 
 	tempFile, err := os.OpenFile(tempFolderName+"/"+logFileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		panic(err)
 	}
-	tempFile.WriteString("===================== BEGIN =====================\n")
+	_, _ = tempFile.WriteString("===================== BEGIN =====================\n")
 
 	return &FileLogger{
 		logger: tempFile,
@@ -41,9 +41,9 @@ func NewFileLogger(prefix string) *FileLogger {
 	}
 }
 
-func (l *FileLogger) Close() {
-	l.logger.WriteString("===================== END =====================\n")
-	_ = l.logger.Close()
+func (l *FileLogger) Close() error {
+	_, _ = l.WriteString("===================== END =====================\n")
+	return l.logger.Close()
 }
 
 func (l *FileLogger) SetDebugMode(mode bool) {
@@ -51,11 +51,11 @@ func (l *FileLogger) SetDebugMode(mode bool) {
 }
 
 func (l *FileLogger) Info(args ...any) {
-	l.logger.WriteString(l.str(args...))
+	_, _ = l.WriteString(l.str(args...))
 }
 
 func (l *FileLogger) Infof(msg string, args ...any) {
-	l.logger.WriteString(l.strf(msg+"\n", args...))
+	_, _ = l.WriteString(l.strf(msg+"\n", args...))
 }
 
 func (l *FileLogger) Fatal(args ...any) {
@@ -86,6 +86,10 @@ func (l *FileLogger) Debugf(msg string, args ...any) {
 	if l.isDebugMode {
 		l.Infof(msg, args...)
 	}
+}
+
+func (l *FileLogger) WriteString(str string) (n int, err error) {
+	return l.logger.WriteString(str)
 }
 
 func (l *FileLogger) str(args ...any) string {

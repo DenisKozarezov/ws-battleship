@@ -24,7 +24,7 @@ func main() {
 	logger := logger.NewLogger(&cfg.App, "[SERVER]")
 	defer logger.Close()
 
-	app := application.NewApp(&cfg.App, logger)
+	app := application.NewApp(ctx, &cfg.App, logger)
 
 	router := routers.NewDefaultRouter(logger)
 	app.Run(ctx, router)

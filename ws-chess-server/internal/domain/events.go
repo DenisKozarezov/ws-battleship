@@ -8,6 +8,12 @@ const (
 	PlayerJoinedEventType = "join"
 )
 
+type Event struct {
+	Type      EventType `json:"type,omitempty"`
+	Timestamp string    `json:"timestamp"`
+	Data      []byte    `json:"data"`
+}
+
 type ClientMetadata struct {
 	Nickname string
 }

@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"fmt"
 	"log"
 )
 
@@ -14,18 +15,18 @@ func NewDefaultLogger(prefix string) *DefaultLogger {
 	return &DefaultLogger{logger: logger}
 }
 
-func (l *DefaultLogger) Close() {}
+func (l *DefaultLogger) Close() error { return nil }
 
 func (l *DefaultLogger) SetDebugMode(mode bool) {
 	l.isDebugMode = mode
 }
 
 func (l *DefaultLogger) Info(args ...any) {
-	l.logger.Println(args...)
+	_, _ = l.WriteString(fmt.Sprint(args...))
 }
 
 func (l *DefaultLogger) Infof(msg string, args ...any) {
-	l.logger.Printf(msg, args...)
+	_, _ = l.WriteString(fmt.Sprintf(msg, args...))
 }
 
 func (l *DefaultLogger) Fatal(args ...any) {
@@ -54,4 +55,9 @@ func (l *DefaultLogger) Debugf(msg string, args ...any) {
 	if l.isDebugMode {
 		l.Infof(msg, args...)
 	}
+}
+
+func (l *DefaultLogger) WriteString(str string) (n int, err error) {
+	l.logger.Println(str)
+	return
 }
