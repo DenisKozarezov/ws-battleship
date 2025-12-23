@@ -30,7 +30,7 @@ func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger log
 		ReadBufferSize:  domain.ReadBufferBytesMax,
 		WriteBufferSize: domain.WriteBufferBytesMax,
 		CheckOrigin: func(r *http.Request) bool {
-			return cfg.IsDebugMode
+			return true
 		},
 	}
 

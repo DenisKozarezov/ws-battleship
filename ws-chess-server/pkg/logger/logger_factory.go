@@ -3,6 +3,7 @@ package logger
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"ws-chess-server/internal/config"
 )
 
@@ -28,16 +29,23 @@ func NewLogger(cfg *config.AppConfig, prefix string) (Logger, error) {
 		return NewDefaultLogger(os.Stdout, prefix, Debug), nil
 	}
 
-	if _, err := os.Stat(tempFolderName); os.IsNotExist(err) {
-		if err = os.Mkdir(tempFolderName, 0755); err != nil {
+	dir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current directory: %w", err)
+	}
+	tempDir := filepath.Join(dir, tempFolderName)
+
+	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
+		if err = os.Mkdir(tempDir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create Temp folder: %w", err)
 		}
 	}
 
-	tempFile, err := os.OpenFile(tempFolderName+"/"+logFileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	logPath := filepath.Join(tempDir, logFileName)
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Log.txt file: %w", err)
 	}
 
-	return NewDefaultLogger(tempFile, prefix, Info), nil
+	return NewDefaultLogger(logFile, prefix, Info), nil
 }
