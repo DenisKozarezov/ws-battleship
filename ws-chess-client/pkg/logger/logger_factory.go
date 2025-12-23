@@ -1,13 +1,12 @@
 package logger
 
 import (
-	"io"
+	"fmt"
+	"os"
 	"ws-chess-client/internal/config"
 )
 
 type Logger interface {
-	io.Closer
-
 	Info(args ...any)
 	Infof(msg string, args ...any)
 	Fatal(args ...any)
@@ -16,19 +15,29 @@ type Logger interface {
 	Errorf(msg string, args ...any)
 	Debug(args ...any)
 	Debugf(msg string, args ...any)
-	SetDebugMode(isDebugMode bool)
+	SetLevel(level Level)
 }
 
-func NewLogger(cfg *config.AppConfig, prefix string) Logger {
-	var logger Logger
+const (
+	tempFolderName = "Temp"
+	logFileName    = "Log.txt"
+)
 
+func NewLogger(cfg *config.AppConfig, prefix string) (Logger, error) {
 	if cfg.IsDebugMode {
-		logger = NewDefaultLogger(prefix)
-	} else {
-		logger = NewFileLogger(prefix)
+		return NewDefaultLogger(os.Stdout, prefix, Debug), nil
 	}
 
-	logger.SetDebugMode(cfg.IsDebugMode)
+	if _, err := os.Stat(tempFolderName); os.IsNotExist(err) {
+		if err = os.Mkdir(tempFolderName, 0755); err != nil {
+			return nil, fmt.Errorf("failed to create Temp folder: %w", err)
+		}
+	}
 
-	return logger
+	tempFile, err := os.OpenFile(tempFolderName+"/"+logFileName, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Log.txt file: %w", err)
+	}
+
+	return NewDefaultLogger(tempFile, prefix, Info), nil
 }

@@ -5,6 +5,11 @@ import "net/http"
 type EventType = string
 
 const (
+	ReadBufferBytesMax  = 1024
+	WriteBufferBytesMax = 1024
+)
+
+const (
 	PlayerJoinedEventType = "join"
 )
 

@@ -21,8 +21,10 @@ func main() {
 		panic(fmt.Sprintln("failed to parse a config", err))
 	}
 
-	logger := logger.NewLogger(&cfg.App, "[SERVER]")
-	defer logger.Close()
+	logger, err := logger.NewLogger(&cfg.App, "[SERVER]")
+	if err != nil {
+		panic(fmt.Sprintln("failed to create a logger", err))
+	}
 
 	app := application.NewApp(ctx, &cfg.App, logger)
 

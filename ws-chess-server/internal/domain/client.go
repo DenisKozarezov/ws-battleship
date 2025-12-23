@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 	"ws-chess-server/pkg/logger"
 
@@ -17,7 +18,9 @@ type ClientID = string
 type Client struct {
 	conn    *websocket.Conn
 	logger  logger.Logger
+	once    sync.Once
 	closeCh chan struct{}
+	writeCh chan []byte
 
 	clientID ClientID
 	nickname string
@@ -28,6 +31,7 @@ func NewClient(conn *websocket.Conn, logger logger.Logger, metadata ClientMetada
 		conn:    conn,
 		logger:  logger,
 		closeCh: make(chan struct{}),
+		writeCh: make(chan []byte, WriteBufferBytesMax),
 
 		clientID: uuid.New().String(),
 		nickname: metadata.Nickname,
@@ -61,22 +65,40 @@ func (c *Client) Compare(rhs *Client) int {
 }
 
 func (c *Client) Ping() error {
-	const pingTimeout = time.Millisecond * 100
+	const pingTimeout = time.Second * 5
 	return c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(pingTimeout))
 }
 
-func (c *Client) SendMessage(obj any) error {
+func (c *Client) SendMessage(eventType EventType, obj any) error {
 	payload, err := json.Marshal(obj)
 	if err != nil {
 		return err
 	}
 
-	return c.conn.WriteMessage(websocket.BinaryMessage, payload)
+	payload, err = json.Marshal(Event{
+		Type:      eventType,
+		Timestamp: time.Now().Format(time.RFC3339),
+		Data:      payload,
+	})
+	if err != nil {
+		return err
+	}
+
+	select {
+	case <-c.closeCh:
+		return nil
+	case c.writeCh <- payload:
+	}
+	return nil
 }
 
-func (c *Client) Close() error {
-	close(c.closeCh)
-	return c.conn.Close()
+func (c *Client) Close() {
+	c.once.Do(func() {
+		close(c.closeCh)
+		if err := c.conn.Close(); err != nil {
+			c.logger.Errorf("failed to close a client id=%s: %s", c.ID(), err)
+		}
+	})
 }
 
 func (c *Client) ReadMessage(ctx context.Context, messagesCh chan Event) {
@@ -130,6 +152,29 @@ func (c *Client) ReadMessage(ctx context.Context, messagesCh chan Event) {
 				c.logger.Infof("client id=%s received a closing signal, stopping reading messages...", c.ID())
 				return
 			case messagesCh <- event:
+			}
+		}
+	}
+}
+
+func (c *Client) WriteMessages(ctx context.Context) {
+	defer close(c.writeCh)
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.closeCh:
+			c.logger.Infof("client id=%s received a closing signal, stopping writing messages...", c.ID())
+			return
+		case msg := <-c.writeCh:
+			c.conn.SetWriteDeadline(time.Now().Add(time.Second * 5))
+			if err := c.conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+				c.logger.Errorf("failed to send a message to client id=%s: %s", c.ID(), err)
 			}
 		}
 	}

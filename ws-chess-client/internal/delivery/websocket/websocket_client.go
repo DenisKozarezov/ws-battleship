@@ -53,9 +53,13 @@ func (c *WebsocketClient) Connect(ctx context.Context) error {
 		return fmt.Errorf("failed to dial: %w", err)
 	}
 
-	const pongTimeout = time.Millisecond * 100
+	const pongTimeout = time.Second * 10
 	conn.SetPingHandler(func(appData string) error {
 		return conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(pongTimeout))
+	})
+	conn.SetPongHandler(func(appData string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongTimeout))
+		return nil
 	})
 	c.conn = conn
 

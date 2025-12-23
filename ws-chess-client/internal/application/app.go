@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"sync"
 	"ws-chess-client/internal/config"
 	client "ws-chess-client/internal/delivery/websocket"
 	"ws-chess-client/internal/delivery/websocket/response"
@@ -16,7 +17,6 @@ type App struct {
 
 func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
 	client := client.NewClient(cfg, logger)
-
 	return &App{
 		cfg:    cfg,
 		logger: logger,
@@ -26,20 +26,28 @@ func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
 
 func (a *App) Run(ctx context.Context) {
 	a.logger.Infof("connecting to server %s", a.cfg.ServerHost)
+
+	var wg sync.WaitGroup
+	wg.Add(2)
 	go func() {
+		defer wg.Done()
 		if err := a.client.Connect(ctx); err != nil {
 			a.logger.Fatalf("failed to connect to server: %s", err)
 		}
 	}()
-
-	go a.handleConnection(ctx)
+	go func() {
+		defer wg.Done()
+		a.handleConnection(ctx)
+	}()
 
 	<-ctx.Done()
 	a.logger.Info("received a signal to shutdown the client")
+	wg.Wait()
 
 	if err := a.Shutdown(); err != nil {
 		a.logger.Fatalf("failed to shutdown a client: %s", err)
 	}
+	a.logger.Info("client is gracefully shutdown")
 }
 
 func (a *App) Shutdown() error {

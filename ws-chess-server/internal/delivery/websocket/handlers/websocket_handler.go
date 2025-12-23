@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"ws-chess-server/internal/config"
 	"ws-chess-server/internal/domain"
 	"ws-chess-server/pkg/logger"
@@ -11,16 +12,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const (
-	readBufferBytesMax  = 1024
-	writeBufferBytesMax = 1024
-)
-
 type WebsocketListener struct {
-	upgrader *websocket.Upgrader
-	wg       sync.WaitGroup
-	ctx      context.Context
-	cancel   context.CancelFunc
+	upgrader   *websocket.Upgrader
+	wg         sync.WaitGroup
+	ctx        context.Context
+	cancel     context.CancelFunc
+	once       sync.Once
+	isShutdown atomic.Bool
 
 	logger logger.Logger
 	joinCh chan *domain.Client
@@ -29,8 +27,8 @@ type WebsocketListener struct {
 
 func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
-		ReadBufferSize:  readBufferBytesMax,
-		WriteBufferSize: writeBufferBytesMax,
+		ReadBufferSize:  domain.ReadBufferBytesMax,
+		WriteBufferSize: domain.WriteBufferBytesMax,
 		CheckOrigin: func(r *http.Request) bool {
 			return cfg.IsDebugMode
 		},
@@ -44,17 +42,22 @@ func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger log
 		cancel:   cancel,
 		logger:   logger,
 		joinCh:   make(chan *domain.Client, cfg.ClientsConnectionsMax),
-		readCh:   make(chan domain.Event, readBufferBytesMax),
+		readCh:   make(chan domain.Event, domain.ReadBufferBytesMax),
 	}
 }
 
 func (l *WebsocketListener) Close() {
-	l.cancel()
+	l.isShutdown.Store(true)
 
-	close(l.joinCh)
-	close(l.readCh)
+	l.once.Do(func() {
+		l.cancel()
 
-	l.logger.Info("websocket listener is closed")
+		// TODO: DANGER! if we close these channels and then someone connects to the server, the listener will write in already closed channel...
+		close(l.joinCh)
+		close(l.readCh)
+
+		l.logger.Info("websocket listener is closed")
+	})
 }
 
 func (l *WebsocketListener) WaitForAllConnections() {
@@ -67,14 +70,23 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 		return nil
 	}
 
+	if l.isShutdown.Load() {
+		return nil
+	}
+
 	newClient := domain.NewClient(conn, l.logger, domain.ParseClientMetadata(r))
 	l.joinCh <- newClient
 
-	l.wg.Add(1)
-	l.wg.Go(func() {
-		defer l.wg.Done()
-		newClient.ReadMessage(l.ctx, l.readCh)
-	})
+	l.wg.Add(2)
+	go func(wg *sync.WaitGroup, client *domain.Client) {
+		defer wg.Done()
+		client.ReadMessage(l.ctx, l.readCh)
+	}(&l.wg, newClient)
+
+	go func(wg *sync.WaitGroup, client *domain.Client) {
+		defer wg.Done()
+		client.WriteMessages(l.ctx)
+	}(&l.wg, newClient)
 
 	return nil
 }

@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -52,11 +51,20 @@ func (a *App) Run(ctx context.Context, router routers.Router) {
 		}
 	}()
 
-	go a.handleConnections(ctx)
-	go a.pingClients(ctx)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		a.handleConnections(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		a.pingClients(ctx)
+	}()
 
 	<-ctx.Done()
 	a.logger.Info("received a signal to shutdown the server")
+	wg.Wait()
 
 	if err := a.Shutdown(); err != nil {
 		a.logger.Fatalf("failed to shutdown a server: %s", err)
@@ -161,9 +169,7 @@ func (a *App) RegisterNewClient(newClient *domain.Client) {
 }
 
 func (a *App) UnregisterClient(client *domain.Client) error {
-	if err := client.Close(); err != nil {
-		return fmt.Errorf("failed to close a client id=%s: %s", client.ID(), err)
-	}
+	client.Close()
 
 	a.mu.Lock()
 	delete(a.clients, client.ID())
@@ -174,16 +180,12 @@ func (a *App) UnregisterClient(client *domain.Client) error {
 	return nil
 }
 
-func (a *App) Broadcast(obj any) {
-	a.logger.Debug("sending a broadcast message to clients...")
-
+func (a *App) Broadcast(eventType domain.EventType, obj any) {
 	a.mu.RLock()
 	for _, client := range a.clients {
-		go func() {
-			if err := client.SendMessage(obj); err != nil {
-				a.logger.Errorf("failed to send a broadcast message to client id=%s", client.ID())
-			}
-		}()
+		if err := client.SendMessage(eventType, obj); err != nil {
+			a.logger.Errorf("failed to send a broadcast message to client id=%s", client.ID())
+		}
 	}
 	a.mu.RUnlock()
 }
