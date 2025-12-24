@@ -101,7 +101,7 @@ func (c *Client) Close() {
 	})
 }
 
-func (c *Client) ReadMessage(ctx context.Context, messagesCh chan Event) {
+func (c *Client) ReadMessages(ctx context.Context, messagesCh chan Event) {
 	for {
 		if err := ctx.Err(); err != nil {
 			return

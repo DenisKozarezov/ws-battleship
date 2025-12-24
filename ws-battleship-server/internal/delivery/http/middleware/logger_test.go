@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func BenchmarkRequestLog(b *testing.B) {
@@ -59,11 +61,7 @@ func TestPreAllocatedLog(t *testing.T) {
 			got := makePreAllocatedLog(&tt.request, tt.elapsed)
 
 			// 3. Assert
-			if tt.expected != got {
-				t.Logf("expected:\t'%s'", tt.expected)
-				t.Logf("got:\t\t'%s'", got)
-				t.Fail()
-			}
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }

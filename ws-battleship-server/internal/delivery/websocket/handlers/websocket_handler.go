@@ -80,7 +80,7 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 	l.wg.Add(2)
 	go func(wg *sync.WaitGroup, client *domain.Client) {
 		defer wg.Done()
-		client.ReadMessage(l.ctx, l.readCh)
+		client.ReadMessages(l.ctx, l.readCh)
 	}(&l.wg, newClient)
 
 	go func(wg *sync.WaitGroup, client *domain.Client) {

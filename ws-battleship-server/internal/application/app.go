@@ -182,10 +182,11 @@ func (a *App) UnregisterClient(client *domain.Client) error {
 
 func (a *App) Broadcast(eventType domain.EventType, obj any) {
 	a.mu.RLock()
+	defer a.mu.RUnlock()
+
 	for _, client := range a.clients {
 		if err := client.SendMessage(eventType, obj); err != nil {
 			a.logger.Errorf("failed to send a broadcast message to client id=%s", client.ID())
 		}
 	}
-	a.mu.RUnlock()
 }
