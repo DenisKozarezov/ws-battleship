@@ -5,7 +5,7 @@ import (
 	"sync"
 	"ws-battleship-client/internal/config"
 	client "ws-battleship-client/internal/delivery/websocket"
-	"ws-battleship-client/internal/delivery/websocket/response"
+	"ws-battleship-client/internal/domain"
 	"ws-battleship-client/pkg/logger"
 )
 
@@ -40,7 +40,8 @@ func (a *App) Run(ctx context.Context) {
 		a.handleConnection(ctx)
 	}()
 
-	renderLoop()
+	g := NewGame()
+	g.RenderScreen()
 
 	<-ctx.Done()
 	a.logger.Info("received a signal to shutdown the client")
@@ -72,6 +73,6 @@ func (a *App) handleConnection(ctx context.Context) {
 	}
 }
 
-func (a *App) handleMessage(event response.Event) {
-
+func (a *App) handleMessage(event domain.Event) {
+	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
 }

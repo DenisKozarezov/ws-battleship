@@ -113,7 +113,7 @@ func (a *App) handleConnections(ctx context.Context) {
 }
 
 func (a *App) handleMessage(event domain.Event) {
-
+	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
 }
 
 func (a *App) pingClients(ctx context.Context) {

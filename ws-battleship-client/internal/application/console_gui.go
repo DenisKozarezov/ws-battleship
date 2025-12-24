@@ -22,19 +22,3 @@ func clearTerminal() {
 		runCmd("clear")
 	}
 }
-
-func renderLoop() {
-	var b = Board{
-		{0, 0, 0, 0, alive, alive, dead, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		{0, alive, 0, 0, 0, 0, 0, 0, 0, 0},
-		{0, alive, 0, 0, dead, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, dead, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, alive, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, alive, 0, 0, 0, 0, 0},
-		{0, 0, 0, 0, 0, 0, 0, alive, 0, 0},
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-		{0, 0, dead, 0, 0, dead, 0, dead, 0, 0},
-	}
-	b.Render()
-}

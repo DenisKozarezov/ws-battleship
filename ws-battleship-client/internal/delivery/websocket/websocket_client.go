@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 	"ws-battleship-client/internal/config"
-	"ws-battleship-client/internal/delivery/websocket/response"
+	"ws-battleship-client/internal/domain"
 	"ws-battleship-client/pkg/logger"
 
 	"github.com/gorilla/websocket"
@@ -25,14 +25,14 @@ type WebsocketClient struct {
 	cfg    *config.AppConfig
 	logger logger.Logger
 	conn   *websocket.Conn
-	readCh chan response.Event
+	readCh chan domain.Event
 }
 
 func NewClient(cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
 	return &WebsocketClient{
 		cfg:    cfg,
 		logger: logger,
-		readCh: make(chan response.Event, readBufferBytesMax),
+		readCh: make(chan domain.Event, readBufferBytesMax),
 	}
 }
 
@@ -71,7 +71,7 @@ func (c *WebsocketClient) Shutdown() error {
 	return c.conn.Close()
 }
 
-func (c *WebsocketClient) Messages() <-chan response.Event {
+func (c *WebsocketClient) Messages() <-chan domain.Event {
 	return c.readCh
 }
 
@@ -105,7 +105,7 @@ func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websoc
 				}
 			}
 
-			var event response.Event
+			var event domain.Event
 			if err := json.Unmarshal(payload, &event); err != nil {
 				c.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
 				continue

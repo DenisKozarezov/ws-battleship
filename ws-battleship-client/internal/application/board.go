@@ -14,67 +14,109 @@ const (
 	lowerLeftCorner  = '└'
 	upperRightCorner = '┐'
 	lowerRightCorner = '┘'
-
-	empty = ' '
-	dead  = 'X'
-	alive = 'O'
 )
 
-type Cell rune
+type CellType = rune
+
+const (
+	Empty CellType = ' '
+	Dead  CellType = 'X'
+	Alive CellType = 'O'
+	Miss  CellType = '*'
+)
+
+type Cell = rune
 
 type Board [len(boardAlphabet)][len(boardAlphabet)]Cell
 
-func (b Board) Render() {
-	clearTerminal()
+func (b Board) IsCellDead(rowIdx, colIdx byte) bool {
+	cellType := b.GetCellType(rowIdx, colIdx)
+	if cellType == 0 {
+		return false
+	}
+	return cellType == Dead
+}
 
-	fmt.Println(b.renderAlphabetHorizontal()) // a b c d e f ...
-	fmt.Println(b.renderBorder(upperLeftCorner, upperRightCorner))
+func (b Board) IsCellEmpty(rowIdx, colIdx byte) bool {
+	cellType := b.GetCellType(rowIdx, colIdx)
+	if cellType == 0 {
+		return true
+	}
+	return cellType == Empty || cellType == 0
+}
+
+func (b Board) GetCellType(rowIdx, colIdx byte) CellType {
+	if rowIdx >= byte(b.size()) || colIdx >= byte(b.size()) {
+		return 0
+	}
+	return b[rowIdx][colIdx]
+}
+
+func (b Board) Lines() []string {
+	var result []string
+
+	result = append(result, b.renderAlphabet())                                // a b c d e f
+	result = append(result, b.renderBorder(upperLeftCorner, upperRightCorner)) // ┌---------┐
 
 	for i := 0; i < b.size(); i++ {
+		var builder strings.Builder
 		if (i+1)/b.size() == 0 {
-			fmt.Print(b.alignLeft())
+			builder.WriteString(b.alignLeft())
 		}
+		builder.WriteString(b.renderRow(i))
 
-		fmt.Println(b.renderRow(i))
+		if (i+1)%b.size() != 0 {
+			builder.WriteString(b.alignLeft())
+		}
+		result = append(result, builder.String()) // Example: 10|**X O       *  X|10
 	}
 
-	fmt.Println(b.renderBorder(lowerLeftCorner, lowerRightCorner))
-	fmt.Println(b.renderAlphabetHorizontal()) // a b c d e f ...
+	result = append(result, b.renderBorder(lowerLeftCorner, lowerRightCorner)) // └---------┘
+	result = append(result, b.renderAlphabet())                                // a b c d e f
+
+	return result
 }
 
 func (b Board) renderRow(rowIdx int) string {
-	var builder strings.Builder
+	if rowIdx >= b.size() {
+		return ""
+	}
 
+	var builder strings.Builder
 	builder.WriteString(fmt.Sprint(rowIdx + 1))
 	builder.WriteRune(verticalLine)
 
-	for columnIdx := 0; columnIdx < b.size(); columnIdx++ {
-		cell := b[rowIdx][columnIdx]
+	for colIdx := 0; colIdx < b.size(); colIdx++ {
+		cell := b[rowIdx][colIdx]
 		if cell == 0 {
-			cell = empty
+			cell = Empty
 		}
 		builder.WriteRune(rune(cell))
 
-		if columnIdx < b.size()-1 {
+		if colIdx < b.size()-1 {
 			builder.WriteRune(' ')
 		}
 	}
 
 	builder.WriteRune(verticalLine)
-	builder.WriteRune(' ')
 	builder.WriteString(fmt.Sprint(rowIdx + 1))
 	return builder.String()
 }
 
-func (b Board) renderAlphabetHorizontal() string {
+func (b Board) renderAlphabet() string {
 	var builder strings.Builder
 	builder.WriteString(b.alignLeft())
 	builder.WriteString("  ")
 
 	for i := 0; i < b.size(); i++ {
 		builder.WriteRune(rune(boardAlphabet[i]))
-		builder.WriteRune(' ')
+		if i < b.size()-1 {
+			builder.WriteRune(' ')
+		}
 	}
+
+	builder.WriteString("  ")
+	builder.WriteString(b.alignLeft())
 	return builder.String()
 }
 
@@ -88,11 +130,13 @@ func (b Board) renderBorder(leftCorner, rightCorner rune) string {
 		builder.WriteRune(horizontalLine)
 	}
 	builder.WriteRune(rightCorner)
+	builder.WriteRune(' ')
+	builder.WriteString(b.alignLeft())
 	return builder.String()
 }
 
 func (b Board) alignLeft() string {
-	buf := make([]byte, 0, 5)
+	buf := make([]byte, 0, 3)
 	for range b.size() / 10 {
 		buf = append(buf, ' ')
 	}

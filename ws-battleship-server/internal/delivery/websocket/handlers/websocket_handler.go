@@ -52,7 +52,7 @@ func (l *WebsocketListener) Close() {
 	l.once.Do(func() {
 		l.cancel()
 
-		// TODO: DANGER! if we close these channels and then someone connects to the server, the listener will write in already closed channel...
+		// TODO: DANGER! if we close these channels and then someone connects to the server, then the listener will write in already closed channel...
 		close(l.joinCh)
 		close(l.readCh)
 
