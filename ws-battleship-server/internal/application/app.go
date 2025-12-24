@@ -106,8 +106,10 @@ func (a *App) handleConnections(ctx context.Context) {
 				a.RegisterNewClient(newClient)
 			}
 
-		case msg := <-a.wsListener.Messages():
-			a.handleMessage(msg)
+		case msg, opened := <-a.wsListener.Messages():
+			if opened {
+				a.handleMessage(msg)
+			}
 		}
 	}
 }

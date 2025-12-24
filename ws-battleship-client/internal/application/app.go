@@ -6,7 +6,11 @@ import (
 	"ws-battleship-client/internal/config"
 	client "ws-battleship-client/internal/delivery/websocket"
 	"ws-battleship-client/internal/domain"
+	"ws-battleship-client/internal/domain/model"
+	"ws-battleship-client/internal/domain/view"
 	"ws-battleship-client/pkg/logger"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type App struct {
@@ -25,23 +29,9 @@ func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
 }
 
 func (a *App) Run(ctx context.Context) {
-	a.logger.Infof("connecting to server %s", a.cfg.ServerHost)
-
 	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if err := a.client.Connect(ctx); err != nil {
-			a.logger.Fatalf("failed to connect to server: %s", err)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		a.handleConnection(ctx)
-	}()
-
-	g := NewGame()
-	g.RenderScreen()
+	a.startClient(ctx, &wg)
+	a.startGame()
 
 	<-ctx.Done()
 	a.logger.Info("received a signal to shutdown the client")
@@ -58,6 +48,22 @@ func (a *App) Shutdown() error {
 	return a.client.Shutdown()
 }
 
+func (a *App) startClient(ctx context.Context, wg *sync.WaitGroup) {
+	a.logger.Infof("connecting to server %s", a.cfg.ServerHost)
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if err := a.client.Connect(ctx); err != nil {
+			a.logger.Fatalf("failed to connect to server: %s", err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		a.handleConnection(ctx)
+	}()
+}
+
 func (a *App) handleConnection(ctx context.Context) {
 	for {
 		if err := ctx.Err(); err != nil {
@@ -67,12 +73,25 @@ func (a *App) handleConnection(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case msg := <-a.client.Messages():
-			a.handleMessage(msg)
+		case msg, opened := <-a.client.Messages():
+			if opened {
+				a.handleMessage(msg)
+			}
 		}
 	}
 }
 
 func (a *App) handleMessage(event domain.Event) {
 	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
+}
+
+func (a *App) startGame() {
+	gameModel := model.NewGameModel()
+	gameView := view.NewGameView(gameModel)
+
+	clearTerminal()
+	renderEngine := tea.NewProgram(gameView)
+	if _, err := renderEngine.Run(); err != nil {
+		a.logger.Fatalf("failed to run a game view: %s", err)
+	}
 }

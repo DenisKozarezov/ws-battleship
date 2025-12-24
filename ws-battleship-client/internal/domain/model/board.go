@@ -1,4 +1,4 @@
-package application
+package model
 
 import (
 	"fmt"
@@ -53,7 +53,7 @@ func (b Board) GetCellType(rowIdx, colIdx byte) CellType {
 }
 
 func (b Board) Lines() []string {
-	var result []string
+	result := make([]string, 0, b.size()+4)
 
 	result = append(result, b.renderAlphabet())                                // a b c d e f
 	result = append(result, b.renderBorder(upperLeftCorner, upperRightCorner)) // ┌---------┐
@@ -68,7 +68,7 @@ func (b Board) Lines() []string {
 		if (i+1)%b.size() != 0 {
 			builder.WriteString(b.alignLeft())
 		}
-		result = append(result, builder.String()) // Example: 10|**X O       *  X|10
+		result = append(result, builder.String()) // Example: 				10|**X O       *  X|10
 	}
 
 	result = append(result, b.renderBorder(lowerLeftCorner, lowerRightCorner)) // └---------┘

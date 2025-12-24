@@ -1,10 +1,11 @@
-package application
+package model
 
 type Player struct {
-	Board Board
+	Board    Board
+	Nickname string
 }
 
-func NewPlayer() *Player {
+func NewPlayer(nickname string) *Player {
 	var board = Board{
 		{Miss, Miss, Miss, 0, Alive, Alive, Dead, 0, 0, 0},
 		{Miss, Miss, 0, 0, 0, Miss, 0, 0, Miss, 0},
@@ -18,5 +19,8 @@ func NewPlayer() *Player {
 		{Miss, Miss, Dead, 0, 0, Dead, 0, Dead, Miss, Miss},
 	}
 
-	return &Player{Board: board}
+	return &Player{
+		Board:    board,
+		Nickname: nickname,
+	}
 }
