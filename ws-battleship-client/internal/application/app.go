@@ -7,7 +7,7 @@ import (
 	client "ws-battleship-client/internal/delivery/websocket"
 	"ws-battleship-client/internal/domain"
 	"ws-battleship-client/internal/domain/model"
-	"ws-battleship-client/internal/domain/view"
+	"ws-battleship-client/internal/domain/views"
 	"ws-battleship-client/pkg/logger"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -87,7 +87,7 @@ func (a *App) handleMessage(event domain.Event) {
 
 func (a *App) startGame() {
 	gameModel := model.NewGameModel()
-	gameView := view.NewGameView(gameModel)
+	gameView := views.NewGameView(gameModel)
 
 	clearTerminal()
 	if _, err := tea.NewProgram(gameView).Run(); err != nil {

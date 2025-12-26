@@ -126,3 +126,46 @@ func TestBoardSize(t *testing.T) {
 		require.Equal(t, len(b.Alphabet()), b.Size())
 	})
 }
+
+func TestAlphabet(t *testing.T) {
+	t.Run("check board's alphabet equals const variable", func(t *testing.T) {
+		var b Board
+		require.Equal(t, boardAlphabet, string(b.Alphabet()))
+	})
+}
+
+func TestBoardLines(t *testing.T) {
+	t.Run("board's lines", func(t *testing.T) {
+		// 1. Arrange
+		var b = Board{
+			{Miss, Miss, Miss, Miss, Miss, Miss, Miss, Miss, Miss, Miss},           // 1
+			{Dead, Empty, Dead, Empty, Dead, Empty, Dead, Empty, Dead, Empty},      // 2
+			{Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead},      // 3
+			{Miss, Dead, Alive, Miss, Dead, Alive, Miss, Dead, Alive, Miss},        // 4
+			{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty}, // 5
+			{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty}, // 6
+			{Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead},           // 7
+			// 8 - Empty
+			// 9 - Empty
+			// 10 - Empty
+		}
+
+		// 2. Act
+		got := b.Lines()
+
+		// 3. Assert
+		expected := []string{
+			"∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙", // 1
+			"X   X   X   X   X  ", // 2
+			"O X O X O X O X O X", // 3
+			"∙ X O ∙ X O ∙ X O ∙", // 4
+			"                   ", // 5
+			"                   ", // 6
+			"X X X X X X X X X X", // 7
+			"                   ", // 8
+			"                   ", // 9
+			"                   ", // 10
+		}
+		require.EqualValues(t, expected, got)
+	})
+}

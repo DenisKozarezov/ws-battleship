@@ -1,4 +1,4 @@
-package view
+package views
 
 import (
 	"testing"
@@ -10,8 +10,8 @@ import (
 func TestSelection(t *testing.T) {
 	t.Run("selection up", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = 5
 		view.selectedColIdx = 255
 
@@ -25,8 +25,8 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection up - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = 0
 		view.selectedColIdx = 255
 
@@ -42,8 +42,8 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection down", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = 5
 		view.selectedColIdx = 255
 
@@ -57,8 +57,8 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection down - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = view.boardSize - 1
 		view.selectedColIdx = 255
 
@@ -74,8 +74,8 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection left", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = 255
 		view.selectedColIdx = 5
 
@@ -89,8 +89,8 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection left - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = 255
 		view.selectedColIdx = 1
 
@@ -106,8 +106,8 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection right", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = 255
 		view.selectedColIdx = 5
 
@@ -121,8 +121,8 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection right - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		model := model.NewGameModel()
-		view := NewGameView(model)
+		player := model.NewPlayer("")
+		view := NewBoardView(player)
 		view.selectedRowIdx = 255
 		view.selectedColIdx = len(view.alphabet) - 1
 
