@@ -3,21 +3,21 @@ package views
 import (
 	"strconv"
 	"strings"
-	"ws-battleship-client/internal/domain/model"
+	"ws-battleship-client/internal/domain/models"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
 type BoardView struct {
-	player         *model.Player
+	player         *models.Player
 	selectedRowIdx int
 	selectedColIdx int
 	boardSize      int
 	alphabet       string
 }
 
-func NewBoardView(player *model.Player) *BoardView {
+func NewBoardView(player *models.Player) *BoardView {
 	var alphabet []rune
 	for i, r := range player.Board.Alphabet() {
 		alphabet = append(alphabet, r)

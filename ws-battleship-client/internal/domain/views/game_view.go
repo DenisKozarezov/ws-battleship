@@ -1,7 +1,7 @@
 package views
 
 import (
-	"ws-battleship-client/internal/domain/model"
+	"ws-battleship-client/internal/domain/models"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -25,13 +25,13 @@ var (
 )
 
 type GameView struct {
-	game       *model.GameModel
+	game       *models.GameModel
 	chatView   *ChatView
 	leftBoard  *BoardView
 	rightBoard *BoardView
 }
 
-func NewGameView(game *model.GameModel) *GameView {
+func NewGameView(game *models.GameModel) *GameView {
 	return &GameView{
 		game:       game,
 		chatView:   NewChatView(game),

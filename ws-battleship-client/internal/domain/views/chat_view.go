@@ -2,7 +2,7 @@ package views
 
 import (
 	"strings"
-	"ws-battleship-client/internal/domain/model"
+	"ws-battleship-client/internal/domain/models"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -24,12 +24,12 @@ var (
 )
 
 type ChatView struct {
-	game     *model.GameModel
+	game     *models.GameModel
 	textarea textarea.Model
 	viewport viewport.Model
 }
 
-func NewChatView(game *model.GameModel) *ChatView {
+func NewChatView(game *models.GameModel) *ChatView {
 	ta := textarea.New()
 	ta.Placeholder = "Press Enter to send a message..."
 	ta.Focus()

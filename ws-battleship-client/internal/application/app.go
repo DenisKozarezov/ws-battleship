@@ -6,7 +6,7 @@ import (
 	"ws-battleship-client/internal/config"
 	client "ws-battleship-client/internal/delivery/websocket"
 	"ws-battleship-client/internal/domain"
-	"ws-battleship-client/internal/domain/model"
+	"ws-battleship-client/internal/domain/models"
 	"ws-battleship-client/internal/domain/views"
 	"ws-battleship-client/pkg/logger"
 
@@ -86,7 +86,7 @@ func (a *App) handleMessage(event domain.Event) {
 }
 
 func (a *App) startGame() {
-	gameModel := model.NewGameModel()
+	gameModel := models.NewGameModel()
 	gameView := views.NewGameView(gameModel)
 
 	clearTerminal()

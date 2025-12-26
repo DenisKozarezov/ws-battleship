@@ -1,4 +1,4 @@
-package model
+package models
 
 type GameModel struct {
 	Player1  *Player
