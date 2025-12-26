@@ -1,8 +1,9 @@
 package model
 
 type GameModel struct {
-	Player1 *Player
-	Player2 *Player
+	Player1  *Player
+	Player2  *Player
+	Messages []string
 }
 
 func NewGameModel() *GameModel {

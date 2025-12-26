@@ -90,8 +90,7 @@ func (a *App) startGame() {
 	gameView := view.NewGameView(gameModel)
 
 	clearTerminal()
-	renderEngine := tea.NewProgram(gameView)
-	if _, err := renderEngine.Run(); err != nil {
+	if _, err := tea.NewProgram(gameView).Run(); err != nil {
 		a.logger.Fatalf("failed to run a game view: %s", err)
 	}
 }

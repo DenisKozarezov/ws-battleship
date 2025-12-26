@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRenderBoardRow(t *testing.T) {
@@ -22,22 +23,22 @@ func TestRenderBoardRow(t *testing.T) {
 		{
 			name:     "first row with some cells",
 			rowIdx:   0,
-			expected: "1│* *     O O X   *  │1",
+			expected: "∙ ∙     O O X   ∙  ",
 		},
 		{
 			name:     "second row with empty cells",
 			rowIdx:   1,
-			expected: "2│                   │2",
+			expected: "                   ",
 		},
 		{
 			name:     "third row with filled cells",
 			rowIdx:   2,
-			expected: "3│X X X X X X X X X X│3",
+			expected: "X X X X X X X X X X",
 		},
 		{
 			name:     "not initialized row",
-			rowIdx:   b.size() - 1,
-			expected: "10│                   │10",
+			rowIdx:   b.Size() - 1,
+			expected: "                   ",
 		},
 		{
 			name:     "out of bounds",
@@ -93,19 +94,19 @@ func TestBoardGetCellType(t *testing.T) {
 		{
 			name:     "last cell of the first row",
 			rowIdx:   0,
-			colIdx:   byte(b.size() - 1),
+			colIdx:   byte(b.Size() - 1),
 			expected: Dead,
 		},
 		{
 			name:     "first cell of the last row",
-			rowIdx:   byte(b.size() - 1),
+			rowIdx:   byte(b.Size() - 1),
 			colIdx:   0,
 			expected: Empty,
 		},
 		{
 			name:     "last cell of the last row",
-			rowIdx:   byte(b.size() - 1),
-			colIdx:   byte(b.size() - 1),
+			rowIdx:   byte(b.Size() - 1),
+			colIdx:   byte(b.Size() - 1),
 			expected: Empty,
 		},
 	} {
@@ -117,4 +118,11 @@ func TestBoardGetCellType(t *testing.T) {
 			assert.Equal(t, tt.expected, got)
 		})
 	}
+}
+
+func TestBoardSize(t *testing.T) {
+	t.Run("check board's size equals board's alphabet length", func(t *testing.T) {
+		var b Board
+		require.Equal(t, len(b.Alphabet()), b.Size())
+	})
 }
