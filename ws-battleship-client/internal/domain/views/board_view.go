@@ -9,12 +9,23 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+var (
+	highlightStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("#4a4a8a")).
+			Foreground(lipgloss.Color("#ffffff"))
+
+	highlightCell = lipgloss.NewStyle().
+			Background(lipgloss.Color("#37DB76")).
+			Foreground(lipgloss.Color("#ffffff")).Bold(true)
+)
+
 type BoardView struct {
 	player         *models.Player
 	selectedRowIdx int
 	selectedColIdx int
 	boardSize      int
 	alphabet       string
+	isSelectable   bool
 }
 
 func NewBoardView(player *models.Player) *BoardView {
@@ -27,14 +38,15 @@ func NewBoardView(player *models.Player) *BoardView {
 		}
 	}
 	return &BoardView{
-		player:    player,
-		boardSize: player.Board.Size(),
-		alphabet:  string(alphabet),
+		player:       player,
+		boardSize:    player.Board.Size(),
+		alphabet:     string(alphabet),
+		isSelectable: false,
 	}
 }
 
 func (m *BoardView) Init() tea.Cmd {
-	return tea.SetWindowTitle("Battleship")
+	return nil
 }
 
 func (m *BoardView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -43,14 +55,23 @@ func (m *BoardView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
+
 		case tea.KeyUp:
-			m.selectionUp()
+			if m.isSelectable {
+				m.selectionUp()
+			}
 		case tea.KeyDown:
-			m.selectionDown()
+			if m.isSelectable {
+				m.selectionDown()
+			}
 		case tea.KeyLeft:
-			m.selectionLeft()
+			if m.isSelectable {
+				m.selectionLeft()
+			}
 		case tea.KeyRight:
-			m.selectionRight()
+			if m.isSelectable {
+				m.selectionRight()
+			}
 		}
 	}
 
@@ -82,7 +103,15 @@ func (m *BoardView) View() string {
 	return boardView
 }
 
+func (m *BoardView) SetSelectable(isSelectable bool) {
+	m.isSelectable = isSelectable
+}
+
 func (m *BoardView) renderBorderRow(str string, currentRowIdx int) string {
+	if !m.isSelectable {
+		return str
+	}
+
 	if m.selectedRowIdx == currentRowIdx {
 		return lipgloss.StyleRunes(str, []int{m.selectedColIdx}, highlightCell, highlightStyle)
 	}

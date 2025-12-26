@@ -74,8 +74,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection left", func(t *testing.T) {
 		// 1. Arrange
-		player := models.NewPlayer("")
-		view := NewBoardView(player)
+		var view BoardView
 		view.selectedRowIdx = 255
 		view.selectedColIdx = 5
 

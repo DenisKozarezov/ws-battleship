@@ -7,57 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRenderBoardRow(t *testing.T) {
-	// 1. Arrange
-	var b = Board{
-		{Miss, Miss, Empty, Empty, Alive, Alive, Dead, Empty, Miss, Empty},
-		{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty},
-		{Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead},
-	}
-
-	tests := []struct {
-		name     string
-		rowIdx   int
-		expected string
-	}{
-		{
-			name:     "first row with some cells",
-			rowIdx:   0,
-			expected: "∙ ∙     O O X   ∙  ",
-		},
-		{
-			name:     "second row with empty cells",
-			rowIdx:   1,
-			expected: "                   ",
-		},
-		{
-			name:     "third row with filled cells",
-			rowIdx:   2,
-			expected: "X X X X X X X X X X",
-		},
-		{
-			name:     "not initialized row",
-			rowIdx:   b.Size() - 1,
-			expected: "                   ",
-		},
-		{
-			name:     "out of bounds",
-			rowIdx:   255,
-			expected: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// 2. Act
-			got := b.renderRow(tt.rowIdx)
-
-			// 3. Assert
-			assert.Equal(t, tt.expected, got)
-		})
-	}
-}
-
 func TestBoardGetCellType(t *testing.T) {
 	// 1. Arrange
 	var b = Board{
@@ -83,7 +32,7 @@ func TestBoardGetCellType(t *testing.T) {
 			name:     "out of bounds",
 			rowIdx:   255,
 			colIdx:   255,
-			expected: 0,
+			expected: Null,
 		},
 		{
 			name:     "first cell of the first row",
@@ -156,16 +105,82 @@ func TestBoardLines(t *testing.T) {
 		// 3. Assert
 		expected := []string{
 			"∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙", // 1
-			"X   X   X   X   X  ", // 2
-			"O X O X O X O X O X", // 3
-			"∙ X O ∙ X O ∙ X O ∙", // 4
+			"■   ■   ■   ■   ■  ", // 2
+			"□ ■ □ ■ □ ■ □ ■ □ ■", // 3
+			"∙ ■ □ ∙ ■ □ ∙ ■ □ ∙", // 4
 			"                   ", // 5
 			"                   ", // 6
-			"X X X X X X X X X X", // 7
+			"■ ■ ■ ■ ■ ■ ■ ■ ■ ■", // 7
 			"                   ", // 8
 			"                   ", // 9
 			"                   ", // 10
 		}
 		require.EqualValues(t, expected, got)
+	})
+}
+
+func TestRenderBoardRow(t *testing.T) {
+	// 1. Arrange
+	var b = Board{
+		{Miss, Miss, Empty, Empty, Alive, Alive, Dead, Empty, Miss, Empty},
+		{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty},
+		{Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead},
+	}
+
+	tests := []struct {
+		name     string
+		rowIdx   int
+		expected string
+	}{
+		{
+			name:     "first row with some cells",
+			rowIdx:   0,
+			expected: "∙ ∙     □ □ ■   ∙  ",
+		},
+		{
+			name:     "second row with empty cells",
+			rowIdx:   1,
+			expected: "                   ",
+		},
+		{
+			name:     "third row with filled cells",
+			rowIdx:   2,
+			expected: "■ ■ ■ ■ ■ ■ ■ ■ ■ ■",
+		},
+		{
+			name:     "not initialized row",
+			rowIdx:   b.Size() - 1,
+			expected: "                   ",
+		},
+		{
+			name:     "out of bounds",
+			rowIdx:   255,
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// 2. Act
+			got := b.renderRow(tt.rowIdx)
+
+			// 3. Assert
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
+
+func TestBoardMarshalBinary(t *testing.T) {
+	t.Run("no error when marshal an empty board", func(t *testing.T) {
+		// 1. Arrange
+		var b Board
+
+		// 2. Act
+		got, err := b.MarshalBinary()
+
+		// 3. Assert
+		require.NoError(t, err)
+		require.NotNil(t, got)
+		require.NotZero(t, len(got))
 	})
 }
