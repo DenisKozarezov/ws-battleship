@@ -65,12 +65,12 @@ func (l *WebsocketListener) WaitForAllConnections() {
 }
 
 func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *http.Request) error {
-	conn, err := l.upgrader.Upgrade(w, r, nil)
-	if err != nil {
+	if l.isShutdown.Load() {
 		return nil
 	}
 
-	if l.isShutdown.Load() {
+	conn, err := l.upgrader.Upgrade(w, r, nil)
+	if err != nil {
 		return nil
 	}
 

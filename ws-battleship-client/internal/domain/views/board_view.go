@@ -116,8 +116,8 @@ func (m *BoardView) SetSelectable(isSelectable bool) {
 }
 
 func (m *BoardView) SelectCell(rowIdx, colIdx int) {
-	m.cellX = math.Clamp(colIdx, 0, m.boardSize-1)
 	m.cellY = math.Clamp(rowIdx, 0, m.boardSize-1)
+	m.cellX = math.Clamp(colIdx, 0, m.boardSize-1)
 
 	m.selectedRowIdx = math.Clamp(rowIdx, 0, m.boardSize-1)
 
