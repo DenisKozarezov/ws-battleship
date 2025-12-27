@@ -17,7 +17,7 @@ func TestTimer(t *testing.T) {
 		require.False(t, view.isStopped)
 	})
 
-	t.Run("timer is stopped immediatelty when reset to zero", func(t *testing.T) {
+	t.Run("timer is stopped immediatelty when resets to zero", func(t *testing.T) {
 		// 1. Arrange
 		view := NewTimerView()
 

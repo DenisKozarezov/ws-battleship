@@ -35,9 +35,9 @@ func (m *TimerView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
-		m.currentTime = max(0, float32(m.expireTime.Sub(val.Time).Seconds()))
+		m.currentTime = max(0.0, float32(m.expireTime.Sub(val.Time).Seconds()))
 
-		if m.currentTime <= 0 {
+		if m.currentTime <= 0.0 {
 			m.Stop()
 			if m.expireCallback != nil {
 				m.expireCallback()
@@ -54,6 +54,10 @@ func (m *TimerView) View() string {
 }
 
 func (m *TimerView) Reset(startTime float32) {
+	if startTime < 0.0 {
+		startTime = 0.0
+	}
+
 	m.expireTime = time.Now().Add(time.Second * time.Duration(startTime))
 	m.currentTime = startTime
 	m.isStopped = false

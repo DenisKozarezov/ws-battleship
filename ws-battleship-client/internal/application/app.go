@@ -13,9 +13,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type Client interface {
+	Messages() <-chan domain.Event
+	Connect(ctx context.Context) error
+	Shutdown() error
+}
+
 type App struct {
 	cfg    *config.AppConfig
-	client *client.WebsocketClient
+	client Client
 	logger logger.Logger
 }
 

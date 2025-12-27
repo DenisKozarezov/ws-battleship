@@ -105,12 +105,12 @@ func TestBoardLines(t *testing.T) {
 		// 3. Assert
 		expected := []string{
 			"∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙ ∙", // 1
-			"■   ■   ■   ■   ■  ", // 2
-			"□ ■ □ ■ □ ■ □ ■ □ ■", // 3
-			"∙ ■ □ ∙ ■ □ ∙ ■ □ ∙", // 4
+			"□   □   □   □   □  ", // 2
+			"■ □ ■ □ ■ □ ■ □ ■ □", // 3
+			"∙ □ ■ ∙ □ ■ ∙ □ ■ ∙", // 4
 			"                   ", // 5
 			"                   ", // 6
-			"■ ■ ■ ■ ■ ■ ■ ■ ■ ■", // 7
+			"□ □ □ □ □ □ □ □ □ □", // 7
 			"                   ", // 8
 			"                   ", // 9
 			"                   ", // 10
@@ -133,9 +133,9 @@ func TestRenderBoardRow(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "first row with some cells",
+			name:     "first row with different cells",
 			rowIdx:   0,
-			expected: "∙ ∙     □ □ ■   ∙  ",
+			expected: "∙ ∙     ■ ■ □   ∙  ",
 		},
 		{
 			name:     "second row with empty cells",
@@ -143,9 +143,9 @@ func TestRenderBoardRow(t *testing.T) {
 			expected: "                   ",
 		},
 		{
-			name:     "third row with filled cells",
+			name:     "filled third row with dead cells",
 			rowIdx:   2,
-			expected: "■ ■ ■ ■ ■ ■ ■ ■ ■ ■",
+			expected: "□ □ □ □ □ □ □ □ □ □",
 		},
 		{
 			name:     "not initialized row",

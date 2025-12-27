@@ -11,8 +11,8 @@ type CellType = rune
 const (
 	Null  CellType = 0
 	Empty CellType = ' '
-	Dead  CellType = '■'
-	Alive CellType = '□'
+	Dead  CellType = '□'
+	Alive CellType = '■'
 	Miss  CellType = '∙'
 )
 
