@@ -10,7 +10,7 @@ import (
 	"ws-battleship-server/internal/delivery/http/routers"
 	"ws-battleship-server/internal/delivery/websocket/handlers"
 	"ws-battleship-server/internal/domain"
-	"ws-battleship-server/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 )
 
 type App struct {

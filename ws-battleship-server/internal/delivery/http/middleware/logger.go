@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-	"ws-battleship-server/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 )
 
 const (

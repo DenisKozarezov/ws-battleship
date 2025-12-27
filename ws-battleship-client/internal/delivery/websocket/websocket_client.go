@@ -8,7 +8,7 @@ import (
 	"time"
 	"ws-battleship-client/internal/config"
 	"ws-battleship-client/internal/domain"
-	"ws-battleship-client/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 
 	"github.com/gorilla/websocket"
 )

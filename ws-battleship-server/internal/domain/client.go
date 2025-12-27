@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"ws-battleship-server/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"

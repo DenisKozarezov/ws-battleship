@@ -3,7 +3,7 @@ package models
 import "bytes"
 
 const (
-	boardAlphabet = "abcdefghjk"
+	boardAlphabet = "abcdefghij"
 )
 
 type CellType = rune

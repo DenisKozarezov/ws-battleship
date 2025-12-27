@@ -38,7 +38,7 @@ func NewGameView(game *models.GameModel) *GameView {
 func (m *GameView) Init() tea.Cmd {
 	m.timerView.Reset(30.0)
 
-	m.GiveTurnToPlayer(m.rightBoard)
+	m.GiveTurnToPlayer(m.leftBoard)
 
 	return tea.Batch(m.leftBoard.Init(),
 		m.rightBoard.Init(),
@@ -73,19 +73,42 @@ func (m *GameView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *GameView) View() string {
-	boards := boardStyle.Render(m.renderPlayersBoards())
-	return lipgloss.JoinHorizontal(lipgloss.Top, boards, " ", m.chatView.View())
+	gameTime := "GAME TIME: 00:00"
+
+	boards := boardStyle.Render(lipgloss.JoinVertical(lipgloss.Center, gameTime, m.renderPlayersBoards()))
+	gameView := lipgloss.JoinHorizontal(lipgloss.Top, boards, " ", m.chatView.View())
+	return gameView
 }
 
 func (m *GameView) GiveTurnToPlayer(board *BoardView) {
+	if m.currentBoard != nil {
+		m.currentBoard.SetSelectable(false)
+	}
 	m.currentBoard = board
 	m.currentBoard.SetSelectable(true)
 }
 
 func (m *GameView) renderPlayersBoards() string {
-	help := helpStyle.Align(lipgloss.Center).Render("Press ↑ ↓ → ← to Navigate\nPress Enter to Fire")
+	return lipgloss.JoinHorizontal(lipgloss.Center, m.leftBoard.View(), m.renderGameTurn(), m.rightBoard.View())
+}
 
-	margin := lipgloss.Place(30, 0, lipgloss.Center, lipgloss.Top, "YOUR TURN!\n"+m.timerView.View()+"\n\n"+help+"\n\n")
+func (m *GameView) renderGameTurn() string {
+	var turn string
+	if m.isLocalPlayerTurn() {
+		turn = highlightAllowedCell.Render(" YOUR TURN ")
+	} else {
+		turn = highlightForbiddenCell.Render(" ENEMY TURN ")
+	}
+	turn = lipgloss.JoinVertical(lipgloss.Center, turn, m.timerView.View())
 
-	return lipgloss.JoinHorizontal(lipgloss.Center, m.leftBoard.View(), margin, m.rightBoard.View())
+	if m.isLocalPlayerTurn() {
+		help := helpStyle.Align(lipgloss.Center).Render("Press ↑ ↓ → ← to Navigate\nPress Enter to Fire")
+		return lipgloss.PlaceHorizontal(30, lipgloss.Center, turn+"\n\n"+help)
+	} else {
+		return lipgloss.PlaceHorizontal(30, lipgloss.Center, turn)
+	}
+}
+
+func (m *GameView) isLocalPlayerTurn() bool {
+	return m.currentBoard == m.leftBoard
 }

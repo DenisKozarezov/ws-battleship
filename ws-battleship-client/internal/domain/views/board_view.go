@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 	"ws-battleship-client/internal/domain/models"
-	"ws-battleship-client/pkg/math"
+	"ws-battleship-shared/pkg/math"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -35,7 +35,7 @@ type BoardView struct {
 }
 
 func NewBoardView(player *models.Player) *BoardView {
-	var alphabet []rune
+	alphabet := make([]rune, 0, player.Board.Size()*2)
 	for i, r := range player.Board.Alphabet() {
 		alphabet = append(alphabet, r)
 

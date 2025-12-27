@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"ws-battleship-server/internal/config"
 	"ws-battleship-server/internal/domain"
-	"ws-battleship-server/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 
 	"github.com/gorilla/websocket"
 )

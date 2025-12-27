@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"ws-battleship-server/internal/delivery/http/middleware"
 	"ws-battleship-server/internal/delivery/http/response"
-	"ws-battleship-server/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 )
 
 type Handler = func(w http.ResponseWriter, req *http.Request) error

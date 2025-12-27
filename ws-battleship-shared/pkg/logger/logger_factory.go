@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"ws-battleship-server/internal/config"
 )
 
 type Logger interface {
@@ -24,8 +23,8 @@ const (
 	logFileName    = "Log.txt"
 )
 
-func NewLogger(cfg *config.AppConfig, prefix string) (Logger, error) {
-	if cfg.IsDebugMode {
+func NewLogger(isDebugMode bool, prefix string) (Logger, error) {
+	if isDebugMode {
 		return NewDefaultLogger(os.Stdout, prefix, Debug), nil
 	}
 

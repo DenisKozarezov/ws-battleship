@@ -9,7 +9,7 @@ import (
 	"ws-battleship-server/internal/application"
 	"ws-battleship-server/internal/config"
 	"ws-battleship-server/internal/delivery/http/routers"
-	"ws-battleship-server/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 )
 
 func main() {
@@ -21,7 +21,7 @@ func main() {
 		panic(fmt.Sprintln("failed to parse a config", err))
 	}
 
-	logger, err := logger.NewLogger(&cfg.App, "[SERVER]")
+	logger, err := logger.NewLogger(cfg.App.IsDebugMode, "[SERVER]")
 	if err != nil {
 		panic(fmt.Sprintln("failed to create a logger", err))
 	}

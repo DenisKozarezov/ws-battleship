@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"ws-battleship-client/internal/application"
 	"ws-battleship-client/internal/config"
-	"ws-battleship-client/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 )
 
 func main() {
@@ -20,7 +20,7 @@ func main() {
 		panic(fmt.Sprintln("failed to parse a config", err))
 	}
 
-	logger, err := logger.NewLogger(&cfg.App, "[CLIENT]")
+	logger, err := logger.NewLogger(cfg.App.IsDebugMode, "[CLIENT]")
 	if err != nil {
 		panic(fmt.Sprintln("failed to create a logger", err))
 	}

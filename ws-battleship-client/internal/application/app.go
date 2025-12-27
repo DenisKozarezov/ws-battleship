@@ -8,7 +8,7 @@ import (
 	"ws-battleship-client/internal/domain"
 	"ws-battleship-client/internal/domain/models"
 	"ws-battleship-client/internal/domain/views"
-	"ws-battleship-client/pkg/logger"
+	"ws-battleship-shared/pkg/logger"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
