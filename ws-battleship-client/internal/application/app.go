@@ -6,28 +6,28 @@ import (
 	"time"
 	"ws-battleship-client/internal/config"
 	client "ws-battleship-client/internal/delivery/websocket"
-	"ws-battleship-client/internal/domain"
 	"ws-battleship-client/internal/domain/models"
 	"ws-battleship-client/internal/domain/views"
+	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Client interface {
-	Messages() <-chan domain.Event
+	Messages() <-chan events.Event
 	Connect(ctx context.Context) error
 	Shutdown() error
 }
 
 type App struct {
-	cfg    *config.AppConfig
+	cfg    *config.Config
 	client Client
 	logger logger.Logger
 }
 
-func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
-	client := client.NewClient(cfg, logger)
+func NewApp(cfg *config.Config, logger logger.Logger) *App {
+	client := client.NewClient(&cfg.App, logger)
 	return &App{
 		cfg:    cfg,
 		logger: logger,
@@ -56,7 +56,7 @@ func (a *App) Shutdown() error {
 }
 
 func (a *App) startClient(ctx context.Context, wg *sync.WaitGroup) {
-	a.logger.Infof("connecting to server %s", a.cfg.ServerHost)
+	a.logger.Infof("connecting to server %s", a.cfg.App.ServerHost)
 
 	wg.Add(2)
 	go func() {
@@ -88,18 +88,19 @@ func (a *App) handleConnection(ctx context.Context) {
 	}
 }
 
-func (a *App) handleMessage(event domain.Event) {
+func (a *App) handleMessage(event events.Event) {
 	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
 }
 
 func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 	gameModel := models.NewGameModel()
-	gameView := views.NewGameView(gameModel)
+	gameView := views.NewGameView(&a.cfg.Game, gameModel)
+
+	const fps = 60
+	const fixedTime = time.Second / fps
 
 	wg.Add(1)
 	go func() {
-		const fps = 60
-		const fixedTime = time.Second / fps
 		ticker := time.NewTicker(fixedTime)
 		defer func() {
 			wg.Done()

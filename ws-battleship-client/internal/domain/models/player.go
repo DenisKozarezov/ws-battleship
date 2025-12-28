@@ -1,26 +1,33 @@
 package models
 
+import (
+	"math/rand"
+	"ws-battleship-shared/domain"
+)
+
 type Player struct {
-	Board    Board
+	Board    domain.Board
 	Nickname string
 }
 
 func NewPlayer(nickname string) *Player {
-	var board = Board{
-		{Miss, Miss, Miss, 0, Alive, Alive, Dead, 0, 0, 0},
-		{Miss, Miss, 0, 0, 0, Miss, 0, 0, Miss, 0},
-		{Miss, Alive, 0, 0, 0, 0, 0, 0, Miss, 0},
-		{0, Alive, 0, 0, Dead, 0, 0, Miss, 0, 0},
-		{0, 0, 0, 0, Dead, 0, 0, 0, 0, 0},
-		{0, Miss, Miss, 0, Alive, 0, 0, 0, Miss, 0},
-		{0, Miss, 0, 0, Alive, 0, 0, Miss, 0, 0},
-		{0, 0, 0, 0, 0, 0, 0, Alive, 0, 0},
-		{0, Miss, Miss, Miss, 0, 0, 0, 0, 0, Miss},
-		{Miss, Miss, Dead, 0, 0, Dead, 0, Dead, Miss, Miss},
-	}
-
 	return &Player{
-		Board:    board,
+		Board:    shuffleBoard(),
 		Nickname: nickname,
 	}
+}
+
+func shuffleBoard() domain.Board {
+	var b domain.Board
+
+	cells := []domain.CellType{domain.Empty, domain.Dead, domain.Alive, domain.Miss}
+
+	for i := 0; i < b.Size(); i++ {
+		for j := 0; j < b.Size(); j++ {
+			r := rand.Intn(len(cells))
+			b[i][j] = cells[r]
+		}
+	}
+
+	return b
 }

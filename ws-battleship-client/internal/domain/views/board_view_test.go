@@ -3,6 +3,7 @@ package views
 import (
 	"testing"
 	"ws-battleship-client/internal/domain/models"
+	"ws-battleship-shared/domain"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -246,8 +247,8 @@ func TestSelectedCellHighlightStyle(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1. Arrange
-			var board = models.Board{
-				{models.Miss, models.Alive, models.Dead, models.Empty, 0},
+			var board = domain.Board{
+				{domain.Miss, domain.Alive, domain.Dead, domain.Empty, 0},
 				// not free     not free      not free       free     free
 				//    ∙             ■             □
 			}

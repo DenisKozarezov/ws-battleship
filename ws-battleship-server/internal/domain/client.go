@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
 	"github.com/google/uuid"
@@ -26,12 +27,12 @@ type Client struct {
 	nickname string
 }
 
-func NewClient(conn *websocket.Conn, logger logger.Logger, metadata ClientMetadata) *Client {
+func NewClient(conn *websocket.Conn, logger logger.Logger, metadata events.ClientMetadata) *Client {
 	return &Client{
 		conn:    conn,
 		logger:  logger,
 		closeCh: make(chan struct{}),
-		writeCh: make(chan []byte, WriteBufferBytesMax),
+		writeCh: make(chan []byte, events.WriteBufferBytesMax),
 
 		clientID: uuid.New().String(),
 		nickname: metadata.Nickname,
@@ -69,13 +70,13 @@ func (c *Client) Ping() error {
 	return c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(pingTimeout))
 }
 
-func (c *Client) SendMessage(eventType EventType, obj any) error {
+func (c *Client) SendMessage(eventType events.EventType, obj any) error {
 	payload, err := json.Marshal(obj)
 	if err != nil {
 		return err
 	}
 
-	payload, err = json.Marshal(Event{
+	payload, err = json.Marshal(events.Event{
 		Type:      eventType,
 		Timestamp: time.Now().Format(time.RFC3339),
 		Data:      payload,
@@ -101,7 +102,7 @@ func (c *Client) Close() {
 	})
 }
 
-func (c *Client) ReadMessages(ctx context.Context, messagesCh chan Event) {
+func (c *Client) ReadMessages(ctx context.Context, messagesCh chan events.Event) {
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -139,7 +140,7 @@ func (c *Client) ReadMessages(ctx context.Context, messagesCh chan Event) {
 				}
 			}
 
-			var event Event
+			var event events.Event
 			if err := json.Unmarshal(payload, &event); err != nil {
 				c.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
 				continue

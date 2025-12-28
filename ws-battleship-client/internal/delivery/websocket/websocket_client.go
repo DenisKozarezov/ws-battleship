@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 	"ws-battleship-client/internal/config"
-	"ws-battleship-client/internal/domain"
+	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
 	"github.com/gorilla/websocket"
@@ -16,31 +16,28 @@ import (
 const (
 	websocketProtocol = "ws"
 	websocketEndpoint = "/ws"
-
-	readBufferBytesMax  = 1024
-	writeBufferBytesMax = 1024
 )
 
 type WebsocketClient struct {
 	cfg    *config.AppConfig
 	logger logger.Logger
 	conn   *websocket.Conn
-	readCh chan domain.Event
+	readCh chan events.Event
 }
 
 func NewClient(cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
 	return &WebsocketClient{
 		cfg:    cfg,
 		logger: logger,
-		readCh: make(chan domain.Event, readBufferBytesMax),
+		readCh: make(chan events.Event, events.ReadBufferBytesMax),
 	}
 }
 
 func (c *WebsocketClient) Connect(ctx context.Context) error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
-		ReadBufferSize:   readBufferBytesMax,
-		WriteBufferSize:  writeBufferBytesMax,
+		ReadBufferSize:   events.ReadBufferBytesMax,
+		WriteBufferSize:  events.WriteBufferBytesMax,
 	}
 
 	serverUrl := fmt.Sprintf("%s://%s%s", websocketProtocol, c.cfg.ServerHost, websocketEndpoint)
@@ -71,7 +68,7 @@ func (c *WebsocketClient) Shutdown() error {
 	return c.conn.Close()
 }
 
-func (c *WebsocketClient) Messages() <-chan domain.Event {
+func (c *WebsocketClient) Messages() <-chan events.Event {
 	return c.readCh
 }
 
@@ -105,7 +102,7 @@ func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websoc
 				}
 			}
 
-			var event domain.Event
+			var event events.Event
 			if err := json.Unmarshal(payload, &event); err != nil {
 				c.logger.Errorf("failed to unmarshal message, discarding it: %s", err)
 				continue

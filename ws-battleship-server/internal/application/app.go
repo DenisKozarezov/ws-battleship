@@ -10,6 +10,7 @@ import (
 	"ws-battleship-server/internal/delivery/http/routers"
 	"ws-battleship-server/internal/delivery/websocket/handlers"
 	"ws-battleship-server/internal/domain"
+	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 )
 
@@ -114,7 +115,7 @@ func (a *App) handleConnections(ctx context.Context) {
 	}
 }
 
-func (a *App) handleMessage(event domain.Event) {
+func (a *App) handleMessage(event events.Event) {
 	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
 }
 
@@ -182,7 +183,7 @@ func (a *App) UnregisterClient(client *domain.Client) error {
 	return nil
 }
 
-func (a *App) Broadcast(eventType domain.EventType, obj any) {
+func (a *App) Broadcast(eventType events.EventType, obj any) {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 

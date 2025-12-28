@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"ws-battleship-server/internal/config"
+	"ws-battleship-server/internal/delivery/http/response"
 	"ws-battleship-server/internal/domain"
+	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
 	"github.com/gorilla/websocket"
@@ -22,13 +25,13 @@ type WebsocketListener struct {
 
 	logger logger.Logger
 	joinCh chan *domain.Client
-	readCh chan domain.Event
+	readCh chan events.Event
 }
 
 func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
-		ReadBufferSize:  domain.ReadBufferBytesMax,
-		WriteBufferSize: domain.WriteBufferBytesMax,
+		ReadBufferSize:  events.ReadBufferBytesMax,
+		WriteBufferSize: events.WriteBufferBytesMax,
 		CheckOrigin: func(r *http.Request) bool {
 			return true
 		},
@@ -42,7 +45,7 @@ func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger log
 		cancel:   cancel,
 		logger:   logger,
 		joinCh:   make(chan *domain.Client, cfg.ClientsConnectionsMax),
-		readCh:   make(chan domain.Event, domain.ReadBufferBytesMax),
+		readCh:   make(chan events.Event, events.ReadBufferBytesMax),
 	}
 }
 
@@ -52,7 +55,6 @@ func (l *WebsocketListener) Close() {
 	l.once.Do(func() {
 		l.cancel()
 
-		// TODO: DANGER! if we close these channels and then someone connects to the server, then the listener will write in already closed channel...
 		close(l.joinCh)
 		close(l.readCh)
 
@@ -66,6 +68,7 @@ func (l *WebsocketListener) WaitForAllConnections() {
 
 func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *http.Request) error {
 	if l.isShutdown.Load() {
+		response.Error(w, errors.New("listener is closed"), 499)
 		return nil
 	}
 
@@ -74,7 +77,7 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 		return nil
 	}
 
-	newClient := domain.NewClient(conn, l.logger, domain.ParseClientMetadata(r))
+	newClient := domain.NewClient(conn, l.logger, events.ParseClientMetadata(r))
 	l.joinCh <- newClient
 
 	l.wg.Add(2)
@@ -95,6 +98,6 @@ func (l *WebsocketListener) JoinChan() <-chan *domain.Client {
 	return l.joinCh
 }
 
-func (l *WebsocketListener) Messages() <-chan domain.Event {
+func (l *WebsocketListener) Messages() <-chan events.Event {
 	return l.readCh
 }

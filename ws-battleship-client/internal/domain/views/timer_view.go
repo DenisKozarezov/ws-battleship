@@ -56,12 +56,12 @@ func (m *TimerView) View() string {
 	return fmt.Sprintf("%s %.0f %s", m.spinner.View(), m.currentTime.Abs().Seconds(), "sec")
 }
 
-func (m *TimerView) Reset(elapsedTime float32) {
-	if elapsedTime < 0.0 {
-		elapsedTime = 0.0
+func (m *TimerView) Reset(timeInSeconds int) {
+	if timeInSeconds < 0 {
+		timeInSeconds = 0
 	}
 
-	m.expireTime = time.Now().Add(time.Second * time.Duration(elapsedTime))
+	m.expireTime = time.Now().Add(time.Second * time.Duration(timeInSeconds))
 }
 
 func (m *TimerView) Start() {

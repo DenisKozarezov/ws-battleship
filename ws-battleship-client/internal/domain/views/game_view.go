@@ -1,6 +1,7 @@
 package views
 
 import (
+	"ws-battleship-client/internal/config"
 	"ws-battleship-client/internal/domain/models"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -24,6 +25,7 @@ type View interface {
 
 type GameView struct {
 	game           *models.GameModel
+	cfg            *config.GameConfig
 	chatView       *ChatView
 	leftBoard      *BoardView
 	rightBoard     *BoardView
@@ -33,9 +35,10 @@ type GameView struct {
 	currentBoard *BoardView
 }
 
-func NewGameView(game *models.GameModel) *GameView {
+func NewGameView(cfg *config.GameConfig, game *models.GameModel) *GameView {
 	return &GameView{
 		game:           game,
+		cfg:            cfg,
 		leftBoard:      NewBoardView(game.Player1),
 		rightBoard:     NewBoardView(game.Player2),
 		chatView:       NewChatView(game),
@@ -111,7 +114,7 @@ func (m *GameView) GiveTurnToPlayer(board *BoardView) {
 	m.currentBoard = board
 	m.currentBoard.SetSelectable(true)
 
-	m.turnTimerView.Reset(30.0)
+	m.turnTimerView.Reset(int(m.cfg.TurnTime.Seconds()))
 	m.turnTimerView.Start()
 }
 
