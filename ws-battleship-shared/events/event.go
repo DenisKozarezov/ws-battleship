@@ -11,6 +11,7 @@ const (
 
 const (
 	PlayerJoinedEventType = "join"
+	GameStartEvent        = "game_start"
 )
 
 type Event struct {

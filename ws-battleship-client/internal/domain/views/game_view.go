@@ -24,7 +24,6 @@ type View interface {
 }
 
 type GameView struct {
-	game           *domain.GameModel
 	cfg            *config.GameConfig
 	chatView       *ChatView
 	leftBoard      *BoardView
@@ -35,13 +34,12 @@ type GameView struct {
 	currentBoard *BoardView
 }
 
-func NewGameView(cfg *config.GameConfig, game *domain.GameModel) *GameView {
+func NewGameView(cfg *config.GameConfig) *GameView {
 	return &GameView{
-		game:           game,
 		cfg:            cfg,
-		leftBoard:      NewBoardView(game.Player1),
-		rightBoard:     NewBoardView(game.Player2),
-		chatView:       NewChatView(game),
+		leftBoard:      NewBoardView(),
+		rightBoard:     NewBoardView(),
+		chatView:       NewChatView(),
 		turnTimerView:  NewTimerView(),
 		gameTickerView: NewTickerView(),
 	}
@@ -51,8 +49,6 @@ func (m *GameView) Init() tea.Cmd {
 	m.turnTimerView.SetExpireCallback(func() {
 		m.currentBoard.SetSelectable(false)
 	})
-
-	m.StartGame()
 
 	return tea.Batch(m.leftBoard.Init(),
 		m.rightBoard.Init(),
@@ -102,7 +98,15 @@ func (m *GameView) View() string {
 	return gameView
 }
 
-func (m *GameView) StartGame() {
+func (m *GameView) StartGame(gameModel domain.GameModel) {
+	players := make([]*domain.PlayerModel, 0, len(gameModel.Players))
+	for _, player := range gameModel.Players {
+		players = append(players, player)
+	}
+
+	m.leftBoard.SetPlayer(players[0])
+	m.rightBoard.SetPlayer(players[1])
+
 	m.gameTickerView.Start()
 	m.GiveTurnToPlayer(m.leftBoard)
 }

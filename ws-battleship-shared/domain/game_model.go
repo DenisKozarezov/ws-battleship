@@ -1,14 +1,12 @@
 package domain
 
 type GameModel struct {
-	Player1  *Player
-	Player2  *Player
+	Players  map[string]*PlayerModel
 	Messages []string
 }
 
-func NewGameModel() *GameModel {
+func NewGameModel(players map[string]*PlayerModel) *GameModel {
 	return &GameModel{
-		Player1: NewPlayer("Player 1"),
-		Player2: NewPlayer("Player 2"),
+		Players: players,
 	}
 }

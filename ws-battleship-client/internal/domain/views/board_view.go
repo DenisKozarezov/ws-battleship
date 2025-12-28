@@ -25,27 +25,32 @@ var (
 )
 
 type BoardView struct {
-	player         *domain.Player
+	nickname string
+
 	selectedRowIdx int
 	selectedColIdx int
 	cellX, cellY   int
 	boardSize      int
+	board          domain.Board
 	alphabet       string
 	isSelectable   bool
 }
 
-func NewBoardView(player *domain.Player) *BoardView {
-	alphabet := make([]rune, 0, player.Board.Size()*2)
-	for i, r := range player.Board.Alphabet() {
+func NewBoardView() *BoardView {
+	var emptyBoard domain.Board
+
+	alphabet := make([]rune, 0, emptyBoard.Size()*2)
+	for i, r := range emptyBoard.Alphabet() {
 		alphabet = append(alphabet, r)
 
-		if i < len(player.Board.Alphabet())-1 {
+		if i < len(emptyBoard.Alphabet())-1 {
 			alphabet = append(alphabet, ' ')
 		}
 	}
 	return &BoardView{
-		player:       player,
-		boardSize:    player.Board.Size(),
+		nickname:     "Unknown",
+		board:        emptyBoard,
+		boardSize:    emptyBoard.Size(),
 		alphabet:     string(alphabet),
 		isSelectable: false,
 	}
@@ -86,7 +91,7 @@ func (m *BoardView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *BoardView) View() string {
-	boardLines := m.player.Board.Lines()
+	boardLines := m.board.Lines()
 
 	var board strings.Builder
 	var numbers strings.Builder
@@ -106,9 +111,14 @@ func (m *BoardView) View() string {
 	boardView := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Render(board.String())
 	boardView = lipgloss.JoinVertical(lipgloss.Center, m.alphabet, boardView)
 	boardView = lipgloss.JoinHorizontal(lipgloss.Center, numbers.String(), boardView)
-	boardView = lipgloss.JoinVertical(lipgloss.Center, boardView, m.player.Nickname)
+	boardView = lipgloss.JoinVertical(lipgloss.Center, boardView, m.nickname)
 
 	return boardView
+}
+
+func (m *BoardView) SetPlayer(player *domain.PlayerModel) {
+	m.board = player.Board
+	m.nickname = player.Nickname
 }
 
 func (m *BoardView) SetSelectable(isSelectable bool) {
@@ -139,7 +149,7 @@ func (m *BoardView) renderBoardRow(str string, currentRowIdx int) string {
 }
 
 func (m *BoardView) getSelectedCellHighlightStyle() lipgloss.Style {
-	if m.player.Board.IsCellEmpty(byte(m.cellY), byte(m.cellX)) {
+	if m.board.IsCellEmpty(byte(m.cellY), byte(m.cellX)) {
 		return highlightAllowedCell
 	} else {
 		return highlightForbiddenCell

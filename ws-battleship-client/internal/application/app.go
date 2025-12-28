@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"encoding/json"
 	"sync"
 	"time"
 	"ws-battleship-client/internal/config"
@@ -21,9 +22,10 @@ type Client interface {
 }
 
 type App struct {
-	cfg    *config.Config
-	client Client
-	logger logger.Logger
+	cfg      *config.Config
+	client   Client
+	logger   logger.Logger
+	gameView *views.GameView
 }
 
 func NewApp(cfg *config.Config, logger logger.Logger) *App {
@@ -91,12 +93,19 @@ func (a *App) handleConnection(ctx context.Context) {
 }
 
 func (a *App) handleMessage(event events.Event) {
-	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
+	switch event.Type {
+	case events.GameStartEvent:
+		var gameModel domain.GameModel
+		if err := json.Unmarshal(event.Data, &gameModel); err != nil {
+			a.logger.Errorf("failed to unmarshal: %s", err)
+			return
+		}
+		a.gameView.StartGame(gameModel)
+	}
 }
 
 func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
-	gameModel := domain.NewGameModel()
-	gameView := views.NewGameView(&a.cfg.Game, gameModel)
+	a.gameView = views.NewGameView(&a.cfg.Game)
 
 	const fps = 60
 	const fixedTime = time.Second / fps
@@ -117,13 +126,14 @@ func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				gameView.FixedUpdate()
+				a.gameView.FixedUpdate()
 			}
 		}
 	}()
 
 	clearTerminal()
-	if _, err := tea.NewProgram(gameView).Run(); err != nil {
+	if _, err := tea.NewProgram(a.gameView).Run(); err != nil {
 		a.logger.Fatalf("failed to run a game view: %s", err)
 	}
+	clearTerminal()
 }

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 	"ws-battleship-server/internal/config"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
@@ -20,7 +21,7 @@ type Room struct {
 	mu     sync.RWMutex
 	wg     sync.WaitGroup
 
-	clients map[string]*Client
+	players map[string]*Player
 	readCh  chan events.Event
 
 	id     string
@@ -34,7 +35,7 @@ func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *
 	r := &Room{
 		ctx:     ctx,
 		cancel:  cancel,
-		clients: make(map[string]*Client, cfg.RoomCapacityMax),
+		players: make(map[string]*Player, cfg.RoomCapacityMax),
 		readCh:  make(chan events.Event, events.ReadBufferBytesMax),
 		id:      uuid.New().String(),
 		cfg:     cfg,
@@ -48,7 +49,7 @@ func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *
 	})
 	r.wg.Go(func() {
 		defer r.wg.Done()
-		r.pingClients(ctx)
+		r.pingPlayers(ctx)
 	})
 
 	return r
@@ -80,14 +81,14 @@ func (r *Room) Close() error {
 		close(r.readCh)
 	})
 
-	for _, client := range r.clients {
-		if err := r.UnregisterClient(client); err != nil {
-			return fmt.Errorf("failed to unregister a client: %w", err)
+	for _, player := range r.players {
+		if err := r.UnregisterPlayer(player); err != nil {
+			return fmt.Errorf("failed to unregister a player: %w", err)
 		}
 	}
 	r.wg.Wait()
 
-	r.logger.Infof("all clients in room id=%s were unregistered", r.ID())
+	r.logger.Infof("all players in room id=%s were unregistered", r.ID())
 	r.logger.Infof("room id=%s is closed", r.ID())
 
 	return nil
@@ -97,38 +98,38 @@ func (r *Room) IsFull() bool {
 	return r.Capacity() == int(r.cfg.RoomCapacityMax)
 }
 
-func (r *Room) RegisterNewClient(newClient *Client) {
+func (r *Room) RegisterNewPlayer(newPlayer *Player) {
 	if r.IsFull() {
 		r.logger.Infof("room id=%s is full", r.ID())
 		return
 	}
 
 	r.mu.Lock()
-	r.clients[newClient.ID()] = newClient
+	r.players[newPlayer.ID()] = newPlayer
 	r.mu.Unlock()
 
 	r.wg.Add(2)
 	go func(wg *sync.WaitGroup, client *Client) {
 		defer wg.Done()
 		client.ReadMessages(r.ctx, r.readCh)
-	}(&r.wg, newClient)
+	}(&r.wg, newPlayer.Client)
 
 	go func(wg *sync.WaitGroup, client *Client) {
 		defer wg.Done()
 		client.WriteMessages(r.ctx)
-	}(&r.wg, newClient)
+	}(&r.wg, newPlayer.Client)
 
-	r.logger.Infof("client %s is connected to room id=%s [players: %d]", newClient.String(), r.ID(), r.Capacity())
+	r.logger.Infof("player %s is connected to room id=%s [players: %d]", newPlayer.String(), r.ID(), r.Capacity())
 }
 
-func (r *Room) UnregisterClient(client *Client) error {
-	client.Close()
+func (r *Room) UnregisterPlayer(player *Player) error {
+	player.Close()
 
 	r.mu.Lock()
-	delete(r.clients, client.ID())
+	delete(r.players, player.ID())
 	r.mu.Unlock()
 
-	r.logger.Infof("client %s was unregistered from the room id=%s [players: %d]", client.String(), r.ID(), r.Capacity())
+	r.logger.Infof("player %s was unregistered from the room id=%s [players: %d]", player.String(), r.ID(), r.Capacity())
 
 	return nil
 }
@@ -137,18 +138,31 @@ func (r *Room) Broadcast(eventType events.EventType, obj any) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	for _, client := range r.clients {
-		if err := client.SendMessage(eventType, obj); err != nil {
-			r.logger.Errorf("failed to send a broadcast message to client id=%s", client.ID())
+	for _, player := range r.players {
+		if err := player.SendMessage(eventType, obj); err != nil {
+			r.logger.Errorf("failed to send a broadcast message to player id=%s", player.ID())
 		}
 	}
 }
 
 func (r *Room) Capacity() (capacity int) {
 	r.mu.RLock()
-	capacity = len(r.clients)
+	capacity = len(r.players)
 	r.mu.RUnlock()
 	return
+}
+
+func (r *Room) StartMatch() {
+	r.logger.Infof("room id=%s is starting a match [players: %d]", r.ID(), r.Capacity())
+
+	playerModels := make(map[string]*domain.PlayerModel, len(r.players))
+	for _, player := range r.players {
+		playerModels[player.ID()] = player.PlayerModel
+	}
+
+	gameModel := domain.NewGameModel(playerModels)
+
+	r.Broadcast(events.GameStartEvent, gameModel)
 }
 
 func (r *Room) handleConnections(ctx context.Context) {
@@ -173,12 +187,12 @@ func (r *Room) handleMessage(event events.Event) {
 	r.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
 }
 
-func (r *Room) pingClients(ctx context.Context) {
+func (r *Room) pingPlayers(ctx context.Context) {
 	pingTicker := time.NewTicker(r.cfg.KeepAlivePeriod)
 	defer pingTicker.Stop()
 
-	deadClients := make(chan *Client, r.cfg.RoomCapacityMax)
-	defer close(deadClients)
+	deadPlayers := make(chan *Player, r.cfg.RoomCapacityMax)
+	defer close(deadPlayers)
 
 	for {
 		if err := ctx.Err(); err != nil {
@@ -194,25 +208,25 @@ func (r *Room) pingClients(ctx context.Context) {
 		// unregistering.
 		case <-pingTicker.C:
 			r.mu.RLock()
-			for _, client := range r.clients {
-				go r.pingClient(client, deadClients)
+			for _, player := range r.players {
+				go r.pingPlayer(player, deadPlayers)
 			}
 			r.mu.RUnlock()
 
 		// We must kick potentially dead clients who didn't response to our ping-message. There are literally zero
 		// reasons to keep stalled connections alive, so the server deallocates them for other needs.
-		case deadClient := <-deadClients:
-			r.logger.Infof("client %s didn't response to ping and was declared as potentially dead by the server, unregistering it...", deadClient.String())
-			if err := r.UnregisterClient(deadClient); err != nil {
-				r.logger.Errorf("failed to disconnect a dead client: %s", err)
+		case deadPlayer := <-deadPlayers:
+			r.logger.Infof("player %s didn't response to ping and was declared as potentially dead by the server, unregistering it...", deadPlayer.String())
+			if err := r.UnregisterPlayer(deadPlayer); err != nil {
+				r.logger.Errorf("failed to disconnect a dead player: %s", err)
 			}
 		}
 	}
 }
 
-func (r *Room) pingClient(client *Client, deadClients chan<- *Client) {
-	if err := client.Ping(); err != nil {
-		r.logger.Errorf("failed to ping a client id=%s: %s", client.ID(), err)
-		deadClients <- client
+func (r *Room) pingPlayer(player *Player, deadPlayer chan<- *Player) {
+	if err := player.Ping(); err != nil {
+		r.logger.Errorf("failed to ping a player id=%s: %s", player.ID(), err)
+		deadPlayer <- player
 	}
 }

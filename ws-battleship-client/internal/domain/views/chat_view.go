@@ -2,7 +2,6 @@ package views
 
 import (
 	"strings"
-	"ws-battleship-shared/domain"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -24,12 +23,12 @@ var (
 )
 
 type ChatView struct {
-	game     *domain.GameModel
+	content  []string
 	textarea textarea.Model
 	viewport viewport.Model
 }
 
-func NewChatView(game *domain.GameModel) *ChatView {
+func NewChatView() *ChatView {
 	ta := textarea.New()
 	ta.Placeholder = "Press Enter to send a message..."
 	ta.Focus()
@@ -54,7 +53,6 @@ Type a message and press Enter to send.`)
 	return &ChatView{
 		textarea: ta,
 		viewport: vp,
-		game:     game,
 	}
 }
 
@@ -77,8 +75,8 @@ func (m *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return m, tea.Quit
 		case tea.KeyEnter:
-			m.game.Messages = append(m.game.Messages, senderStyle.Render("You: ")+m.textarea.Value())
-			m.SetContent(m.game.Messages)
+			m.content = append(m.content, senderStyle.Render("You: ")+m.textarea.Value())
+			m.SetContent(m.content)
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 		}

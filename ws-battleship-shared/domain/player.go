@@ -1,16 +1,19 @@
 package domain
 
-import "math/rand"
+import (
+	"math/rand"
+	"ws-battleship-shared/events"
+)
 
-type Player struct {
+type PlayerModel struct {
 	Board    Board
 	Nickname string
 }
 
-func NewPlayer(nickname string) *Player {
-	return &Player{
+func NewPlayerModel(metadata events.ClientMetadata) *PlayerModel {
+	return &PlayerModel{
 		Board:    shuffleBoard(),
-		Nickname: nickname,
+		Nickname: metadata.Nickname,
 	}
 }
 

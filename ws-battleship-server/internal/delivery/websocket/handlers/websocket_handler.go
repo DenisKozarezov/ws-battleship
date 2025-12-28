@@ -19,11 +19,11 @@ type WebsocketListener struct {
 	once       sync.Once
 	isShutdown atomic.Bool
 
-	joinCh chan *domain.Client
+	joinCh chan *domain.Player
 	logger logger.Logger
 }
 
-func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger, joinCh chan *domain.Client) *WebsocketListener {
+func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger, joinCh chan *domain.Player) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
 		ReadBufferSize:  events.ReadBufferBytesMax,
 		WriteBufferSize: events.WriteBufferBytesMax,
@@ -59,9 +59,10 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 	}
 
 	newClient := domain.NewClient(conn, l.logger, events.ParseClientMetadataFromHeaders(r))
+	newPlayer := domain.NewPlayer(newClient)
 
 	select {
-	case l.joinCh <- newClient:
+	case l.joinCh <- newPlayer:
 	default:
 	}
 	return nil

@@ -19,12 +19,12 @@ type App struct {
 	logger     logger.Logger
 
 	mu     sync.RWMutex
-	joinCh chan *domain.Client
+	joinCh chan *domain.Player
 	rooms  map[string]*domain.Room
 }
 
 func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
-	joinCh := make(chan *domain.Client, cfg.ClientsConnectionsMax)
+	joinCh := make(chan *domain.Player, cfg.ClientsConnectionsMax)
 
 	return &App{
 		cfg:        cfg,
@@ -77,7 +77,7 @@ func (a *App) Shutdown() error {
 	a.wsListener.Close()
 	for _, room := range a.rooms {
 		if err := room.Close(); err != nil {
-			a.logger.Errorf("failed to unregister a client: %s", err)
+			a.logger.Errorf("failed to close a room: %s", err)
 		}
 	}
 
@@ -101,22 +101,25 @@ func (r *App) handleConnections(ctx context.Context) {
 			return
 
 		// Register incoming clients, when they establish a connection.
-		case newClient, opened := <-r.joinCh:
+		case newPlayer, opened := <-r.joinCh:
 			if opened {
-				r.connectClientToFreeRoom(ctx, newClient)
+				r.connectPlayerToFreeRoom(ctx, newPlayer)
 			}
 		}
 	}
 }
 
-func (r *App) connectClientToFreeRoom(ctx context.Context, newClient *domain.Client) {
-	if room := r.findFreeRoom(); room != nil {
-		room.RegisterNewClient(newClient)
-		return
+func (r *App) connectPlayerToFreeRoom(ctx context.Context, newPlayer *domain.Player) {
+	room := r.findFreeRoom()
+	if room == nil {
+		room = r.createNewRoom(ctx)
 	}
 
-	newRoom := r.createNewRoom(ctx)
-	newRoom.RegisterNewClient(newClient)
+	room.RegisterNewPlayer(newPlayer)
+
+	if room.IsFull() {
+		room.StartMatch()
+	}
 }
 
 func (r *App) findFreeRoom() *domain.Room {

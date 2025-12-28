@@ -3,7 +3,6 @@ package domain
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -25,7 +24,7 @@ type Client struct {
 	writeCh chan []byte
 
 	clientID ClientID
-	nickname string
+	metadata events.ClientMetadata
 }
 
 func NewClient(conn *websocket.Conn, logger logger.Logger, metadata events.ClientMetadata) *Client {
@@ -36,20 +35,12 @@ func NewClient(conn *websocket.Conn, logger logger.Logger, metadata events.Clien
 		writeCh: make(chan []byte, events.WriteBufferBytesMax),
 
 		clientID: uuid.New().String(),
-		nickname: metadata.Nickname,
+		metadata: metadata,
 	}
 }
 
 func (c *Client) ID() ClientID {
 	return c.clientID
-}
-
-func (c *Client) Nickname() string {
-	return c.nickname
-}
-
-func (c *Client) String() string {
-	return fmt.Sprintf(`'%s' [%s]`, c.Nickname(), c.ID())
 }
 
 func (c *Client) Equal(rhs *Client) bool {

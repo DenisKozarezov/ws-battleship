@@ -12,7 +12,7 @@ import (
 func TestSelection(t *testing.T) {
 	t.Run("selection up", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = 5
 		view.cellX = 5
 
@@ -28,7 +28,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection up - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = 0
 		view.cellX = 5
 
@@ -46,7 +46,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection down", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = 5
 		view.cellX = 5
 
@@ -62,7 +62,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection down - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = view.boardSize - 1
 		view.cellX = 5
 
@@ -80,7 +80,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection left", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = 5
 		view.cellX = 5
 
@@ -96,7 +96,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection left - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = 5
 		view.cellX = 1
 
@@ -114,7 +114,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection right", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = 5
 		view.cellX = 5
 
@@ -130,7 +130,7 @@ func TestSelection(t *testing.T) {
 
 	t.Run("selection right - check bounds", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.cellY = 5
 		view.cellX = view.boardSize - 1
 
@@ -193,7 +193,7 @@ func TestSelectCell(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1. Arrange
-			view := NewBoardView(domain.NewPlayer(""))
+			view := NewBoardView()
 
 			// 2. Act
 			view.SelectCell(tt.cellY, tt.cellX)
@@ -251,7 +251,8 @@ func TestSelectedCellHighlightStyle(t *testing.T) {
 				// not free     not free      not free       free     free
 				//    ∙             ■             □
 			}
-			view := NewBoardView(&domain.Player{Board: board})
+			view := NewBoardView()
+			view.board = board
 			view.SelectCell(0, tt.cellX)
 
 			// 2. Act
@@ -266,7 +267,7 @@ func TestSelectedCellHighlightStyle(t *testing.T) {
 func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 	t.Run("selection up", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.SelectCell(5, 5)
 
 		// 2. Act
@@ -281,7 +282,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 	})
 	t.Run("selection down", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.SelectCell(5, 5)
 
 		// 2. Act
@@ -296,7 +297,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 	})
 	t.Run("selection left", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.SelectCell(5, 5)
 
 		// 2. Act
@@ -311,7 +312,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 	})
 	t.Run("selection right", func(t *testing.T) {
 		// 1. Arrange
-		view := NewBoardView(domain.NewPlayer(""))
+		view := NewBoardView()
 		view.SelectCell(5, 5)
 
 		// 2. Act
