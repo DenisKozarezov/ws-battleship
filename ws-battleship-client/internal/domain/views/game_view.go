@@ -2,7 +2,7 @@ package views
 
 import (
 	"ws-battleship-client/internal/config"
-	"ws-battleship-client/internal/domain/models"
+	"ws-battleship-shared/domain"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -24,7 +24,7 @@ type View interface {
 }
 
 type GameView struct {
-	game           *models.GameModel
+	game           *domain.GameModel
 	cfg            *config.GameConfig
 	chatView       *ChatView
 	leftBoard      *BoardView
@@ -35,7 +35,7 @@ type GameView struct {
 	currentBoard *BoardView
 }
 
-func NewGameView(cfg *config.GameConfig, game *models.GameModel) *GameView {
+func NewGameView(cfg *config.GameConfig, game *domain.GameModel) *GameView {
 	return &GameView{
 		game:           game,
 		cfg:            cfg,

@@ -3,7 +3,7 @@ package views
 import (
 	"strconv"
 	"strings"
-	"ws-battleship-client/internal/domain/models"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/pkg/math"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,7 +25,7 @@ var (
 )
 
 type BoardView struct {
-	player         *models.Player
+	player         *domain.Player
 	selectedRowIdx int
 	selectedColIdx int
 	cellX, cellY   int
@@ -34,7 +34,7 @@ type BoardView struct {
 	isSelectable   bool
 }
 
-func NewBoardView(player *models.Player) *BoardView {
+func NewBoardView(player *domain.Player) *BoardView {
 	alphabet := make([]rune, 0, player.Board.Size()*2)
 	for i, r := range player.Board.Alphabet() {
 		alphabet = append(alphabet, r)

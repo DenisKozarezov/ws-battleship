@@ -23,8 +23,14 @@ type ClientMetadata struct {
 	Nickname string
 }
 
-func ParseClientMetadata(r *http.Request) ClientMetadata {
+func ParseClientMetadataFromHeaders(r *http.Request) ClientMetadata {
 	return ClientMetadata{
 		Nickname: r.Header.Get("X-Nickname"),
 	}
+}
+
+func ParseClientMetadataToHeaders(metadata ClientMetadata) http.Header {
+	headers := make(http.Header)
+	headers.Set("X-Nickname", metadata.Nickname)
+	return headers
 }

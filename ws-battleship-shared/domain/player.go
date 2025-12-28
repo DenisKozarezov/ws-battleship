@@ -1,12 +1,9 @@
-package models
+package domain
 
-import (
-	"math/rand"
-	"ws-battleship-shared/domain"
-)
+import "math/rand"
 
 type Player struct {
-	Board    domain.Board
+	Board    Board
 	Nickname string
 }
 
@@ -17,10 +14,10 @@ func NewPlayer(nickname string) *Player {
 	}
 }
 
-func shuffleBoard() domain.Board {
-	var b domain.Board
+func shuffleBoard() Board {
+	var b Board
 
-	cells := []domain.CellType{domain.Empty, domain.Dead, domain.Alive, domain.Miss}
+	cells := []CellType{Empty, Dead, Alive, Miss}
 
 	for i := 0; i < b.Size(); i++ {
 		for j := 0; j < b.Size(); j++ {

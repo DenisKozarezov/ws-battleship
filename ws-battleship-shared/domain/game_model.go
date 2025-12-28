@@ -1,4 +1,4 @@
-package models
+package domain
 
 type GameModel struct {
 	Player1  *Player

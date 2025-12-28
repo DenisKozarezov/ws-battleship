@@ -6,8 +6,8 @@ import (
 	"time"
 	"ws-battleship-client/internal/config"
 	client "ws-battleship-client/internal/delivery/websocket"
-	"ws-battleship-client/internal/domain/models"
 	"ws-battleship-client/internal/domain/views"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
@@ -16,7 +16,7 @@ import (
 
 type Client interface {
 	Messages() <-chan events.Event
-	Connect(ctx context.Context) error
+	Connect(ctx context.Context, metadata events.ClientMetadata) error
 	Shutdown() error
 }
 
@@ -61,7 +61,9 @@ func (a *App) startClient(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		if err := a.client.Connect(ctx); err != nil {
+
+		metadata := events.ClientMetadata{Nickname: "Player 1"}
+		if err := a.client.Connect(ctx, metadata); err != nil {
 			a.logger.Fatalf("failed to connect to server: %s", err)
 		}
 	}()
@@ -93,7 +95,7 @@ func (a *App) handleMessage(event events.Event) {
 }
 
 func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
-	gameModel := models.NewGameModel()
+	gameModel := domain.NewGameModel()
 	gameView := views.NewGameView(&a.cfg.Game, gameModel)
 
 	const fps = 60

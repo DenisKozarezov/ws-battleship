@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"time"
 	"ws-battleship-client/internal/config"
 	"ws-battleship-shared/events"
@@ -33,7 +32,7 @@ func NewClient(cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
 	}
 }
 
-func (c *WebsocketClient) Connect(ctx context.Context) error {
+func (c *WebsocketClient) Connect(ctx context.Context, metadata events.ClientMetadata) error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 		ReadBufferSize:   events.ReadBufferBytesMax,
@@ -42,10 +41,7 @@ func (c *WebsocketClient) Connect(ctx context.Context) error {
 
 	serverUrl := fmt.Sprintf("%s://%s%s", websocketProtocol, c.cfg.ServerHost, websocketEndpoint)
 
-	headers := make(http.Header)
-	headers.Set("X-Nickname", "player123")
-
-	conn, _, err := dialer.DialContext(ctx, serverUrl, headers)
+	conn, _, err := dialer.DialContext(ctx, serverUrl, events.ParseClientMetadataToHeaders(metadata))
 	if err != nil {
 		return fmt.Errorf("failed to dial: %w", err)
 	}
@@ -77,15 +73,22 @@ func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websoc
 
 	for {
 		if err := ctx.Err(); err != nil {
+			c.logger.Info("client received a closing signal, stopping reading messages...")
 			return
 		}
 
 		select {
 		case <-ctx.Done():
+			c.logger.Info("client received a closing signal, stopping reading messages...")
 			return
 		default:
 			_, payload, err := conn.ReadMessage()
 			if err != nil {
+				if err := ctx.Err(); err != nil {
+					c.logger.Info("client received a closing signal, stopping reading messages...")
+					return
+				}
+
 				switch {
 				case websocket.IsUnexpectedCloseError(err,
 					websocket.CloseGoingAway,
