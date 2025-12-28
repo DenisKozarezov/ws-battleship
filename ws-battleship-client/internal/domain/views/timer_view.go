@@ -11,14 +11,15 @@ import (
 type TimerView struct {
 	spinner        spinner.Model
 	expireTime     time.Time
-	currentTime    float32
+	currentTime    time.Duration
 	isStopped      bool
 	expireCallback func()
 }
 
 func NewTimerView() *TimerView {
 	return &TimerView{
-		spinner: spinner.New(spinner.WithSpinner(spinner.Points)),
+		isStopped: true,
+		spinner:   spinner.New(spinner.WithSpinner(spinner.Points)),
 	}
 }
 
@@ -27,39 +28,43 @@ func (m *TimerView) Init() tea.Cmd {
 }
 
 func (m *TimerView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.isStopped {
-		return m, nil
-	}
-
-	switch val := msg.(type) {
+	switch msg.(type) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
 		m.spinner, cmd = m.spinner.Update(msg)
-		m.currentTime = max(0.0, float32(m.expireTime.Sub(val.Time).Seconds()))
-
-		if m.currentTime <= 0.0 {
-			m.Stop()
-			if m.expireCallback != nil {
-				m.expireCallback()
-			}
-		}
-
 		return m, cmd
 	}
 	return m, nil
 }
 
-func (m *TimerView) View() string {
-	return fmt.Sprintf("%s %.0f %s", m.spinner.View(), m.currentTime, "sec")
-}
-
-func (m *TimerView) Reset(startTime float32) {
-	if startTime < 0.0 {
-		startTime = 0.0
+func (m *TimerView) FixedUpdate() {
+	if m.isStopped {
+		return
 	}
 
-	m.expireTime = time.Now().Add(time.Second * time.Duration(startTime))
-	m.currentTime = startTime
+	m.currentTime = time.Until(m.expireTime)
+
+	if m.currentTime.Seconds() <= 0.0 {
+		m.Stop()
+		if m.expireCallback != nil {
+			m.expireCallback()
+		}
+	}
+}
+
+func (m *TimerView) View() string {
+	return fmt.Sprintf("%s %.0f %s", m.spinner.View(), m.currentTime.Abs().Seconds(), "sec")
+}
+
+func (m *TimerView) Reset(elapsedTime float32) {
+	if elapsedTime < 0.0 {
+		elapsedTime = 0.0
+	}
+
+	m.expireTime = time.Now().Add(time.Second * time.Duration(elapsedTime))
+}
+
+func (m *TimerView) Start() {
 	m.isStopped = false
 }
 

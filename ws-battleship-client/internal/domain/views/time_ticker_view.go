@@ -26,13 +26,15 @@ func (m *TickerView) Init() tea.Cmd {
 }
 
 func (m *TickerView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m, nil
+}
+
+func (m *TickerView) FixedUpdate() {
 	if m.isStopped {
-		return m, nil
+		return
 	}
 
 	m.elapsedTime = time.Since(m.startTime)
-
-	return m, nil
 }
 
 func (m *TickerView) View() string {

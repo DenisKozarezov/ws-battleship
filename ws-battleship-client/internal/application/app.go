@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"sync"
+	"time"
 	"ws-battleship-client/internal/config"
 	client "ws-battleship-client/internal/delivery/websocket"
 	"ws-battleship-client/internal/domain"
@@ -37,7 +38,7 @@ func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
 func (a *App) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	a.startClient(ctx, &wg)
-	a.startGame()
+	a.runGameLoop(ctx, &wg)
 
 	<-ctx.Done()
 	a.logger.Info("received a signal to shutdown the client")
@@ -91,9 +92,32 @@ func (a *App) handleMessage(event domain.Event) {
 	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
 }
 
-func (a *App) startGame() {
+func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 	gameModel := models.NewGameModel()
 	gameView := views.NewGameView(gameModel)
+
+	wg.Add(1)
+	go func() {
+		const fps = 60
+		const fixedTime = time.Second / fps
+		ticker := time.NewTicker(fixedTime)
+		defer func() {
+			wg.Done()
+			ticker.Stop()
+		}()
+		for {
+			if err := ctx.Err(); err != nil {
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				gameView.FixedUpdate()
+			}
+		}
+	}()
 
 	clearTerminal()
 	if _, err := tea.NewProgram(gameView).Run(); err != nil {

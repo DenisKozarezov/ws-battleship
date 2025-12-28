@@ -15,6 +15,13 @@ var (
 	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
 
+type View interface {
+	Init() tea.Cmd
+	Update(msg tea.Msg) (tea.Model, tea.Cmd)
+	FixedUpdate()
+	View() string
+}
+
 type GameView struct {
 	game       *models.GameModel
 	chatView   *ChatView
@@ -38,10 +45,7 @@ func NewGameView(game *models.GameModel) *GameView {
 }
 
 func (m *GameView) Init() tea.Cmd {
-	m.timerView.Reset(30.0)
-	m.tickerView.Start()
-
-	m.GiveTurnToPlayer(m.leftBoard)
+	m.StartGame()
 
 	return tea.Batch(m.leftBoard.Init(),
 		m.rightBoard.Init(),
@@ -78,12 +82,25 @@ func (m *GameView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+func (m *GameView) FixedUpdate() {
+	m.tickerView.FixedUpdate()
+	m.timerView.FixedUpdate()
+}
+
 func (m *GameView) View() string {
 	gameTime := "GAME TIME: " + m.tickerView.View()
 
 	boards := boardStyle.Render(lipgloss.JoinVertical(lipgloss.Center, gameTime, m.renderPlayersBoards()))
 	gameView := lipgloss.JoinHorizontal(lipgloss.Top, boards, " ", m.chatView.View())
 	return gameView
+}
+
+func (m *GameView) StartGame() {
+	m.timerView.Reset(30.0)
+	m.timerView.Start()
+	m.tickerView.Start()
+
+	m.GiveTurnToPlayer(m.leftBoard)
 }
 
 func (m *GameView) GiveTurnToPlayer(board *BoardView) {
