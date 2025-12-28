@@ -63,7 +63,6 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 	select {
 	case l.joinCh <- newClient:
 	default:
-
 	}
 	return nil
 }
