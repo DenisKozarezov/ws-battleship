@@ -17,7 +17,8 @@ import (
 type ClientID = string
 
 type Client struct {
-	conn    *websocket.Conn
+	conn *websocket.Conn
+
 	logger  logger.Logger
 	once    sync.Once
 	closeCh chan struct{}
@@ -102,7 +103,7 @@ func (c *Client) Close() {
 	})
 }
 
-func (c *Client) ReadMessages(ctx context.Context, messagesCh chan events.Event) {
+func (c *Client) ReadMessages(ctx context.Context, messagesCh chan<- events.Event) {
 	for {
 		if err := ctx.Err(); err != nil {
 			return

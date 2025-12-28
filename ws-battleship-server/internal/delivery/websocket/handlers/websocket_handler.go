@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"sync"
@@ -17,18 +16,14 @@ import (
 
 type WebsocketListener struct {
 	upgrader   *websocket.Upgrader
-	wg         sync.WaitGroup
-	ctx        context.Context
-	cancel     context.CancelFunc
 	once       sync.Once
 	isShutdown atomic.Bool
 
-	logger logger.Logger
 	joinCh chan *domain.Client
-	readCh chan events.Event
+	logger logger.Logger
 }
 
-func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *WebsocketListener {
+func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger, joinCh chan *domain.Client) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
 		ReadBufferSize:  events.ReadBufferBytesMax,
 		WriteBufferSize: events.WriteBufferBytesMax,
@@ -37,15 +32,10 @@ func NewWebsocketListener(ctx context.Context, cfg *config.AppConfig, logger log
 		},
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-
 	return &WebsocketListener{
 		upgrader: &websocketUpgrader,
-		ctx:      ctx,
-		cancel:   cancel,
 		logger:   logger,
-		joinCh:   make(chan *domain.Client, cfg.ClientsConnectionsMax),
-		readCh:   make(chan events.Event, events.ReadBufferBytesMax),
+		joinCh:   joinCh,
 	}
 }
 
@@ -53,17 +43,8 @@ func (l *WebsocketListener) Close() {
 	l.isShutdown.Store(true)
 
 	l.once.Do(func() {
-		l.cancel()
-
-		close(l.joinCh)
-		close(l.readCh)
-
 		l.logger.Info("websocket listener is closed")
 	})
-}
-
-func (l *WebsocketListener) WaitForAllConnections() {
-	l.wg.Wait()
 }
 
 func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *http.Request) error {
@@ -78,26 +59,11 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 	}
 
 	newClient := domain.NewClient(conn, l.logger, events.ParseClientMetadataFromHeaders(r))
-	l.joinCh <- newClient
 
-	l.wg.Add(2)
-	go func(wg *sync.WaitGroup, client *domain.Client) {
-		defer wg.Done()
-		client.ReadMessages(l.ctx, l.readCh)
-	}(&l.wg, newClient)
+	select {
+	case l.joinCh <- newClient:
+	default:
 
-	go func(wg *sync.WaitGroup, client *domain.Client) {
-		defer wg.Done()
-		client.WriteMessages(l.ctx)
-	}(&l.wg, newClient)
-
+	}
 	return nil
-}
-
-func (l *WebsocketListener) JoinChan() <-chan *domain.Client {
-	return l.joinCh
-}
-
-func (l *WebsocketListener) Messages() <-chan events.Event {
-	return l.readCh
 }

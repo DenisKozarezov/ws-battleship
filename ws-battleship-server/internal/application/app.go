@@ -5,12 +5,10 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"time"
 	"ws-battleship-server/internal/config"
 	"ws-battleship-server/internal/delivery/http/routers"
 	"ws-battleship-server/internal/delivery/websocket/handlers"
 	"ws-battleship-server/internal/domain"
-	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 )
 
@@ -20,16 +18,20 @@ type App struct {
 	wsListener *handlers.WebsocketListener
 	logger     logger.Logger
 
-	mu      sync.RWMutex
-	clients map[string]*domain.Client
+	mu     sync.RWMutex
+	joinCh chan *domain.Client
+	rooms  map[string]*domain.Room
 }
 
-func NewApp(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *App {
+func NewApp(cfg *config.AppConfig, logger logger.Logger) *App {
+	joinCh := make(chan *domain.Client, cfg.ClientsConnectionsMax)
+
 	return &App{
 		cfg:        cfg,
 		logger:     logger,
-		wsListener: handlers.NewWebsocketListener(ctx, cfg, logger),
-		clients:    make(map[string]*domain.Client, cfg.ClientsConnectionsMax),
+		wsListener: handlers.NewWebsocketListener(cfg, logger, joinCh),
+		joinCh:     joinCh,
+		rooms:      make(map[string]*domain.Room, cfg.ClientsConnectionsMax),
 	}
 }
 
@@ -53,14 +55,10 @@ func (a *App) Run(ctx context.Context, router routers.Router) {
 	}()
 
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		a.handleConnections(ctx)
-	}()
-	go func() {
-		defer wg.Done()
-		a.pingClients(ctx)
 	}()
 
 	<-ctx.Done()
@@ -77,12 +75,11 @@ func (a *App) Shutdown() error {
 	a.logger.Info("shutting the server down...")
 
 	a.wsListener.Close()
-	for _, client := range a.clients {
-		if err := a.UnregisterClient(client); err != nil {
+	for _, room := range a.rooms {
+		if err := room.Close(); err != nil {
 			a.logger.Errorf("failed to unregister a client: %s", err)
 		}
 	}
-	a.wsListener.WaitForAllConnections()
 
 	return a.httpServer.Close()
 }
@@ -91,7 +88,9 @@ func (a *App) SetupRoutes(router routers.Router) {
 	router.GET("/ws", a.wsListener.HandleWebsocketConnection)
 }
 
-func (a *App) handleConnections(ctx context.Context) {
+func (r *App) handleConnections(ctx context.Context) {
+	defer close(r.joinCh)
+
 	for {
 		if err := ctx.Err(); err != nil {
 			return
@@ -102,94 +101,35 @@ func (a *App) handleConnections(ctx context.Context) {
 			return
 
 		// Register incoming clients, when they establish a connection.
-		case newClient, opened := <-a.wsListener.JoinChan():
+		case newClient, opened := <-r.joinCh:
 			if opened {
-				a.RegisterNewClient(newClient)
-			}
-
-		case msg, opened := <-a.wsListener.Messages():
-			if opened {
-				a.handleMessage(msg)
+				r.connectClientToFreeRoom(ctx, newClient)
 			}
 		}
 	}
 }
 
-func (a *App) handleMessage(event events.Event) {
-	a.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
-}
-
-func (a *App) pingClients(ctx context.Context) {
-	pingTicker := time.NewTicker(a.cfg.KeepAlivePeriod)
-	defer pingTicker.Stop()
-
-	deadClients := make(chan *domain.Client, a.cfg.ClientsConnectionsMax)
-	defer close(deadClients)
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-
-		// We should periodically send a ping-message to all clients just to be ensured, that the clients
-		// are still alive. If no, then the server collects dead clients to a special queue for further
-		// unregistering.
-		case <-pingTicker.C:
-			a.mu.RLock()
-			for _, client := range a.clients {
-				go a.pingClient(client, deadClients)
-			}
-			a.mu.RUnlock()
-
-		// We must kick potentially dead clients who didn't response to our ping-message. There are literally zero
-		// reasons to keep stalled connections alive, so the server deallocates them for other needs.
-		case deadClient := <-deadClients:
-			a.logger.Infof("client %s didn't response to ping and was declared as potentially dead by the server, unregistering it...", deadClient.String())
-			if err := a.UnregisterClient(deadClient); err != nil {
-				a.logger.Errorf("failed to disconnect a dead client: %s", err)
+func (r *App) connectClientToFreeRoom(ctx context.Context, newClient *domain.Client) {
+	if len(r.rooms) > 0 {
+		for _, room := range r.rooms {
+			if !room.IsFull() {
+				room.RegisterNewClient(newClient)
+				return
 			}
 		}
 	}
+
+	newRoom := r.createNewRoom(ctx)
+	newRoom.RegisterNewClient(newClient)
 }
 
-func (a *App) pingClient(client *domain.Client, deadClients chan<- *domain.Client) {
-	if err := client.Ping(); err != nil {
-		a.logger.Errorf("failed to ping a client id=%s: %s", client.ID(), err)
-		deadClients <- client
-	}
-}
+func (r *App) createNewRoom(ctx context.Context) *domain.Room {
+	room := domain.NewRoom(ctx, r.cfg, r.logger)
 
-func (a *App) RegisterNewClient(newClient *domain.Client) {
-	a.mu.Lock()
-	a.clients[newClient.ID()] = newClient
-	a.mu.Unlock()
+	r.mu.Lock()
+	r.rooms[room.ID()] = room
+	r.logger.Infof("new room with id=%s was created [rooms: %d]", room.ID(), len(r.rooms))
+	r.mu.Unlock()
 
-	a.logger.Infof("client %s is now connected", newClient.String())
-}
-
-func (a *App) UnregisterClient(client *domain.Client) error {
-	client.Close()
-
-	a.mu.Lock()
-	delete(a.clients, client.ID())
-	a.mu.Unlock()
-
-	a.logger.Infof("client id=%s was unregistered", client.ID())
-
-	return nil
-}
-
-func (a *App) Broadcast(eventType events.EventType, obj any) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-
-	for _, client := range a.clients {
-		if err := client.SendMessage(eventType, obj); err != nil {
-			a.logger.Errorf("failed to send a broadcast message to client id=%s", client.ID())
-		}
-	}
+	return room
 }
