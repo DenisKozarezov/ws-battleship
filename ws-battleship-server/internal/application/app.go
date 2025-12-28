@@ -110,17 +110,29 @@ func (r *App) handleConnections(ctx context.Context) {
 }
 
 func (r *App) connectClientToFreeRoom(ctx context.Context, newClient *domain.Client) {
-	if len(r.rooms) > 0 {
-		for _, room := range r.rooms {
-			if !room.IsFull() {
-				room.RegisterNewClient(newClient)
-				return
-			}
-		}
+	if room := r.findFreeRoom(); room != nil {
+		room.RegisterNewClient(newClient)
+		return
 	}
 
 	newRoom := r.createNewRoom(ctx)
 	newRoom.RegisterNewClient(newClient)
+}
+
+func (r *App) findFreeRoom() *domain.Room {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	if len(r.rooms) == 0 {
+		return nil
+	}
+
+	for _, room := range r.rooms {
+		if !room.IsFull() {
+			return room
+		}
+	}
+	return nil
 }
 
 func (r *App) createNewRoom(ctx context.Context) *domain.Room {

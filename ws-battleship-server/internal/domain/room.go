@@ -73,7 +73,7 @@ func (c *Room) Compare(rhs *Room) int {
 }
 
 func (r *Room) Close() error {
-	r.logger.Infof("room id=%s is closing...", r.ID())
+	r.logger.Infof("room id=%s [players: %d] is closing...", r.ID(), r.Capacity())
 
 	r.once.Do(func() {
 		r.cancel()
@@ -149,10 +149,6 @@ func (r *Room) Capacity() (capacity int) {
 	capacity = len(r.clients)
 	r.mu.RUnlock()
 	return
-}
-
-func (r *Room) Messages() chan events.Event {
-	return r.readCh
 }
 
 func (r *Room) handleConnections(ctx context.Context) {
