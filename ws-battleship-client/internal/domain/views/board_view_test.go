@@ -4,6 +4,7 @@ import (
 	"testing"
 	"ws-battleship-client/internal/domain/models"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/require"
 )
@@ -260,4 +261,67 @@ func TestSelectedCellHighlightStyle(t *testing.T) {
 			require.Equal(t, tt.expected, got)
 		})
 	}
+}
+
+func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
+	t.Run("selection up", func(t *testing.T) {
+		// 1. Arrange
+		view := NewBoardView(models.NewPlayer(""))
+		view.SelectCell(5, 5)
+
+		// 2. Act
+		view.SetSelectable(false)
+		view.Update(&tea.KeyMsg{Type: tea.KeyUp})
+
+		// 3. Assert
+		require.Equal(t, 5, view.cellY)
+		require.Equal(t, 5, view.cellX)
+		require.Equal(t, view.cellY, view.selectedRowIdx)
+		require.Equal(t, view.cellX*2, view.selectedColIdx)
+	})
+	t.Run("selection down", func(t *testing.T) {
+		// 1. Arrange
+		view := NewBoardView(models.NewPlayer(""))
+		view.SelectCell(5, 5)
+
+		// 2. Act
+		view.SetSelectable(false)
+		view.Update(&tea.KeyMsg{Type: tea.KeyDown})
+
+		// 3. Assert
+		require.Equal(t, 5, view.cellY)
+		require.Equal(t, 5, view.cellX)
+		require.Equal(t, view.cellY, view.selectedRowIdx)
+		require.Equal(t, view.cellX*2, view.selectedColIdx)
+	})
+	t.Run("selection left", func(t *testing.T) {
+		// 1. Arrange
+		view := NewBoardView(models.NewPlayer(""))
+		view.SelectCell(5, 5)
+
+		// 2. Act
+		view.SetSelectable(false)
+		view.Update(&tea.KeyMsg{Type: tea.KeyLeft})
+
+		// 3. Assert
+		require.Equal(t, 5, view.cellY)
+		require.Equal(t, 5, view.cellX)
+		require.Equal(t, view.cellY, view.selectedRowIdx)
+		require.Equal(t, view.cellX*2, view.selectedColIdx)
+	})
+	t.Run("selection right", func(t *testing.T) {
+		// 1. Arrange
+		view := NewBoardView(models.NewPlayer(""))
+		view.SelectCell(5, 5)
+
+		// 2. Act
+		view.SetSelectable(false)
+		view.Update(&tea.KeyMsg{Type: tea.KeyRight})
+
+		// 3. Assert
+		require.Equal(t, 5, view.cellY)
+		require.Equal(t, 5, view.cellX)
+		require.Equal(t, view.cellY, view.selectedRowIdx)
+		require.Equal(t, view.cellX*2, view.selectedColIdx)
+	})
 }

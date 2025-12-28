@@ -23,34 +23,38 @@ type View interface {
 }
 
 type GameView struct {
-	game       *models.GameModel
-	chatView   *ChatView
-	leftBoard  *BoardView
-	rightBoard *BoardView
-	timerView  *TimerView
-	tickerView *TickerView
+	game           *models.GameModel
+	chatView       *ChatView
+	leftBoard      *BoardView
+	rightBoard     *BoardView
+	turnTimerView  *TimerView
+	gameTickerView *TickerView
 
 	currentBoard *BoardView
 }
 
 func NewGameView(game *models.GameModel) *GameView {
 	return &GameView{
-		game:       game,
-		leftBoard:  NewBoardView(game.Player1),
-		rightBoard: NewBoardView(game.Player2),
-		chatView:   NewChatView(game),
-		timerView:  NewTimerView(),
-		tickerView: NewTickerView(),
+		game:           game,
+		leftBoard:      NewBoardView(game.Player1),
+		rightBoard:     NewBoardView(game.Player2),
+		chatView:       NewChatView(game),
+		turnTimerView:  NewTimerView(),
+		gameTickerView: NewTickerView(),
 	}
 }
 
 func (m *GameView) Init() tea.Cmd {
+	m.turnTimerView.SetExpireCallback(func() {
+		m.currentBoard.SetSelectable(false)
+	})
+
 	m.StartGame()
 
 	return tea.Batch(m.leftBoard.Init(),
 		m.rightBoard.Init(),
 		m.chatView.Init(),
-		m.timerView.Init(),
+		m.turnTimerView.Init(),
 		tea.SetWindowTitle("Battleship"))
 }
 
@@ -73,22 +77,22 @@ func (m *GameView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	_, cmd = m.chatView.Update(msg)
 	cmds = append(cmds, cmd)
 
-	_, cmd = m.timerView.Update(msg)
+	_, cmd = m.turnTimerView.Update(msg)
 	cmds = append(cmds, cmd)
 
-	_, cmd = m.tickerView.Update(msg)
+	_, cmd = m.gameTickerView.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
 }
 
 func (m *GameView) FixedUpdate() {
-	m.tickerView.FixedUpdate()
-	m.timerView.FixedUpdate()
+	m.gameTickerView.FixedUpdate()
+	m.turnTimerView.FixedUpdate()
 }
 
 func (m *GameView) View() string {
-	gameTime := "GAME TIME: " + m.tickerView.View()
+	gameTime := "GAME TIME: " + m.gameTickerView.View()
 
 	boards := boardStyle.Render(lipgloss.JoinVertical(lipgloss.Center, gameTime, m.renderPlayersBoards()))
 	gameView := lipgloss.JoinHorizontal(lipgloss.Top, boards, " ", m.chatView.View())
@@ -96,10 +100,7 @@ func (m *GameView) View() string {
 }
 
 func (m *GameView) StartGame() {
-	m.timerView.Reset(30.0)
-	m.timerView.Start()
-	m.tickerView.Start()
-
+	m.gameTickerView.Start()
 	m.GiveTurnToPlayer(m.leftBoard)
 }
 
@@ -109,6 +110,9 @@ func (m *GameView) GiveTurnToPlayer(board *BoardView) {
 	}
 	m.currentBoard = board
 	m.currentBoard.SetSelectable(true)
+
+	m.turnTimerView.Reset(30.0)
+	m.turnTimerView.Start()
 }
 
 func (m *GameView) renderPlayersBoards() string {
@@ -122,7 +126,7 @@ func (m *GameView) renderGameTurn() string {
 	} else {
 		turn = highlightForbiddenCell.Render(" ENEMY TURN ")
 	}
-	turn = lipgloss.JoinVertical(lipgloss.Center, turn, m.timerView.View())
+	turn = lipgloss.JoinVertical(lipgloss.Center, turn, m.turnTimerView.View())
 
 	if m.isLocalPlayerTurn() {
 		help := helpStyle.Align(lipgloss.Center).Render("Press ↑ ↓ → ← to Navigate\nPress Enter to Fire")

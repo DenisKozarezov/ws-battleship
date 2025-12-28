@@ -86,18 +86,18 @@ func (m *BoardView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *BoardView) View() string {
-	b1Lines := m.player.Board.Lines()
+	boardLines := m.player.Board.Lines()
 
 	var board strings.Builder
 	var numbers strings.Builder
 	numbers.Grow(m.boardSize)
 	numbers.WriteRune('\n')
 
-	for i := range b1Lines {
-		board.WriteString(m.renderBoardRow(b1Lines[i], i))
+	for i := range boardLines {
+		board.WriteString(m.renderBoardRow(boardLines[i], i))
 		numbers.WriteString(strconv.FormatInt(int64(i+1), 10))
 
-		if i < len(b1Lines)-1 {
+		if i < len(boardLines)-1 {
 			board.WriteRune('\n')
 			numbers.WriteRune('\n')
 		}
@@ -119,7 +119,7 @@ func (m *BoardView) SelectCell(rowIdx, colIdx int) {
 	m.cellY = math.Clamp(rowIdx, 0, m.boardSize-1)
 	m.cellX = math.Clamp(colIdx, 0, m.boardSize-1)
 
-	m.selectedRowIdx = math.Clamp(rowIdx, 0, m.boardSize-1)
+	m.selectedRowIdx = m.cellY
 
 	// String: a   b   c   d   e    f     g     h     j     k
 	// Index:  0   1   2   3   4    5     6     7     8     9
