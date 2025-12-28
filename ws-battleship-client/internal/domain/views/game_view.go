@@ -21,6 +21,7 @@ type GameView struct {
 	leftBoard  *BoardView
 	rightBoard *BoardView
 	timerView  *TimerView
+	tickerView *TickerView
 
 	currentBoard *BoardView
 }
@@ -32,11 +33,13 @@ func NewGameView(game *models.GameModel) *GameView {
 		rightBoard: NewBoardView(game.Player2),
 		chatView:   NewChatView(game),
 		timerView:  NewTimerView(),
+		tickerView: NewTickerView(),
 	}
 }
 
 func (m *GameView) Init() tea.Cmd {
 	m.timerView.Reset(30.0)
+	m.tickerView.Start()
 
 	m.GiveTurnToPlayer(m.leftBoard)
 
@@ -69,11 +72,14 @@ func (m *GameView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	_, cmd = m.timerView.Update(msg)
 	cmds = append(cmds, cmd)
 
+	_, cmd = m.tickerView.Update(msg)
+	cmds = append(cmds, cmd)
+
 	return m, tea.Batch(cmds...)
 }
 
 func (m *GameView) View() string {
-	gameTime := "GAME TIME: 00:00"
+	gameTime := "GAME TIME: " + m.tickerView.View()
 
 	boards := boardStyle.Render(lipgloss.JoinVertical(lipgloss.Center, gameTime, m.renderPlayersBoards()))
 	gameView := lipgloss.JoinHorizontal(lipgloss.Top, boards, " ", m.chatView.View())
