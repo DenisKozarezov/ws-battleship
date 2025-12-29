@@ -1,0 +1,4 @@
+packages:
+  ws-battleship-server/internal/domain:
+    interfaces:
+      Client:

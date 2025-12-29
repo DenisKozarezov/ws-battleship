@@ -3,17 +3,18 @@ package domain
 import (
 	"fmt"
 	"ws-battleship-shared/domain"
+	"ws-battleship-shared/events"
 )
 
 type Player struct {
-	*domain.PlayerModel
-	*Client
+	Client
+	Model *domain.PlayerModel
 }
 
-func NewPlayer(client *Client) *Player {
+func NewPlayer(client Client, metadata events.ClientMetadata) *Player {
 	return &Player{
-		PlayerModel: domain.NewPlayerModel(client.metadata),
-		Client:      client,
+		Model:  domain.NewPlayerModel(metadata),
+		Client: client,
 	}
 }
 
@@ -22,5 +23,5 @@ func (p *Player) String() string {
 }
 
 func (p *Player) Nickname() string {
-	return p.PlayerModel.Nickname
+	return p.Model.Nickname
 }

@@ -109,15 +109,15 @@ func (r *Room) RegisterNewPlayer(newPlayer *Player) {
 	r.mu.Unlock()
 
 	r.wg.Add(2)
-	go func(wg *sync.WaitGroup, client *Client) {
+	go func(wg *sync.WaitGroup, player *Player) {
 		defer wg.Done()
-		client.ReadMessages(r.ctx, r.readCh)
-	}(&r.wg, newPlayer.Client)
+		player.ReadMessages(r.ctx, r.readCh)
+	}(&r.wg, newPlayer)
 
-	go func(wg *sync.WaitGroup, client *Client) {
+	go func(wg *sync.WaitGroup, player *Player) {
 		defer wg.Done()
-		client.WriteMessages(r.ctx)
-	}(&r.wg, newPlayer.Client)
+		player.WriteMessages(r.ctx)
+	}(&r.wg, newPlayer)
 
 	r.logger.Infof("player %s is connected to room id=%s [players: %d]", newPlayer.String(), r.ID(), r.Capacity())
 }
@@ -157,7 +157,7 @@ func (r *Room) StartMatch() {
 
 	playerModels := make(map[string]*domain.PlayerModel, len(r.players))
 	for _, player := range r.players {
-		playerModels[player.ID()] = player.PlayerModel
+		playerModels[player.ID()] = player.Model
 	}
 
 	gameModel := domain.NewGameModel(playerModels)

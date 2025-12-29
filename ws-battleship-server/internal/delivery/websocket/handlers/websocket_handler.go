@@ -58,8 +58,8 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 		return nil
 	}
 
-	newClient := domain.NewClient(conn, l.logger, events.ParseClientMetadataFromHeaders(r))
-	newPlayer := domain.NewPlayer(newClient)
+	newClient := NewWebsocketClient(conn, l.logger)
+	newPlayer := domain.NewPlayer(newClient, events.ParseClientMetadataFromHeaders(r))
 
 	select {
 	case l.joinCh <- newPlayer:
