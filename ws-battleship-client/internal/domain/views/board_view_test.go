@@ -63,7 +63,7 @@ func TestSelection(t *testing.T) {
 	t.Run("selection down - check bounds", func(t *testing.T) {
 		// 1. Arrange
 		view := NewBoardView()
-		view.cellY = view.boardSize - 1
+		view.cellY = view.board.Size() - 1
 		view.cellX = 5
 
 		// 2. Act
@@ -72,7 +72,7 @@ func TestSelection(t *testing.T) {
 		view.selectionDown()
 
 		// 3. Assert
-		require.Equal(t, view.boardSize-1, view.cellY)
+		require.Equal(t, view.board.Size()-1, view.cellY)
 		require.Equal(t, 5, view.cellX)
 		require.Equal(t, view.cellY, view.selectedRowIdx)
 		require.Equal(t, view.cellX*2, view.selectedColIdx)
@@ -132,7 +132,7 @@ func TestSelection(t *testing.T) {
 		// 1. Arrange
 		view := NewBoardView()
 		view.cellY = 5
-		view.cellX = view.boardSize - 1
+		view.cellX = view.board.Size() - 1
 
 		// 2. Act
 		view.selectionRight()
@@ -141,7 +141,7 @@ func TestSelection(t *testing.T) {
 
 		// 3. Assert
 		require.Equal(t, 5, view.cellY)
-		require.Equal(t, view.boardSize-1, view.cellX)
+		require.Equal(t, view.board.Size()-1, view.cellX)
 		require.Equal(t, view.cellY, view.selectedRowIdx)
 		require.Equal(t, view.cellX*2, view.selectedColIdx)
 	})
@@ -207,7 +207,7 @@ func TestSelectCell(t *testing.T) {
 	}
 }
 
-func TestSelectedCellHighlightStyle(t *testing.T) {
+func TestGetCellHighlightStyle(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
 		cellX    int
@@ -256,7 +256,7 @@ func TestSelectedCellHighlightStyle(t *testing.T) {
 			view.SelectCell(0, tt.cellX)
 
 			// 2. Act
-			got := view.getSelectedCellHighlightStyle()
+			got := view.getCellHighlighStyle()
 
 			// 3. Assert
 			require.Equal(t, tt.expected, got)

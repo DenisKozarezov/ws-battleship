@@ -38,7 +38,7 @@ func (v *TickerView) FixedUpdate() {
 }
 
 func (v *TickerView) View() string {
-	return v.elapsedTimeString()
+	return v.String()
 }
 
 func (v *TickerView) Start() {
@@ -58,7 +58,7 @@ func (v *TickerView) ElapsedTime() time.Duration {
 	return v.elapsedTime
 }
 
-func (v *TickerView) elapsedTimeString() string {
+func (v *TickerView) String() string {
 	elapsedSeconds := int(v.elapsedTime.Seconds())
 	minutes := elapsedSeconds / 60
 	elapsedSeconds %= 60

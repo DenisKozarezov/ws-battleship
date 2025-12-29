@@ -30,7 +30,6 @@ type BoardView struct {
 	selectedRowIdx int
 	selectedColIdx int
 	cellX, cellY   int
-	boardSize      int
 	board          domain.Board
 	alphabet       string
 	isSelectable   bool
@@ -50,7 +49,6 @@ func NewBoardView() *BoardView {
 	return &BoardView{
 		nickname:     "Unknown",
 		board:        emptyBoard,
-		boardSize:    emptyBoard.Size(),
 		alphabet:     string(alphabet),
 		isSelectable: false,
 	}
@@ -92,7 +90,7 @@ func (v *BoardView) View() string {
 
 	var board strings.Builder
 	var numbers strings.Builder
-	numbers.Grow(v.boardSize)
+	numbers.Grow(v.board.Size())
 	numbers.WriteRune('\n')
 
 	for i := range boardLines {
@@ -123,8 +121,8 @@ func (v *BoardView) SetSelectable(isSelectable bool) {
 }
 
 func (v *BoardView) SelectCell(rowIdx, colIdx int) {
-	v.cellY = math.Clamp(rowIdx, 0, v.boardSize-1)
-	v.cellX = math.Clamp(colIdx, 0, v.boardSize-1)
+	v.cellY = math.Clamp(rowIdx, 0, v.board.Size()-1)
+	v.cellX = math.Clamp(colIdx, 0, v.board.Size()-1)
 
 	v.selectedRowIdx = v.cellY
 
@@ -140,12 +138,12 @@ func (v *BoardView) renderBoardRow(str string, currentRowIdx int) string {
 	}
 
 	if v.selectedRowIdx == currentRowIdx {
-		return lipgloss.StyleRunes(str, []int{v.selectedColIdx}, v.getSelectedCellHighlightStyle(), highlightStyle)
+		return lipgloss.StyleRunes(str, []int{v.selectedColIdx}, v.getCellHighlighStyle(), highlightStyle)
 	}
 	return lipgloss.StyleRunes(str, []int{v.selectedColIdx}, highlightStyle, defaultText)
 }
 
-func (v *BoardView) getSelectedCellHighlightStyle() lipgloss.Style {
+func (v *BoardView) getCellHighlighStyle() lipgloss.Style {
 	if v.board.IsCellEmpty(byte(v.cellY), byte(v.cellX)) {
 		return highlightAllowedCell
 	} else {

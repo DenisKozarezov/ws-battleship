@@ -73,7 +73,7 @@ func TestTimeTicker(t *testing.T) {
 			}
 
 			// 2. Act
-			got := ticker.elapsedTimeString()
+			got := ticker.String()
 
 			// 3. Assert
 			require.Equal(t, tt.expected, got)

@@ -142,9 +142,10 @@ func (r *App) createNewRoom(ctx context.Context) *domain.Room {
 	room := domain.NewRoom(ctx, r.cfg, r.logger)
 
 	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	r.rooms[room.ID()] = room
 	r.logger.Infof("new room with id=%s was created [rooms: %d]", room.ID(), len(r.rooms))
-	r.mu.Unlock()
 
 	return room
 }
