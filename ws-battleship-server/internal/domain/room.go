@@ -95,7 +95,7 @@ func (r *Room) Close() error {
 }
 
 func (r *Room) IsFull() bool {
-	return r.Capacity() == int(r.cfg.RoomCapacityMax)
+	return r.Capacity() >= int(r.cfg.RoomCapacityMax)
 }
 
 func (r *Room) RegisterNewPlayer(newPlayer *Player) {

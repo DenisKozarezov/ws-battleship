@@ -18,7 +18,7 @@ func NewPlayer(client *Client) *Player {
 }
 
 func (p *Player) String() string {
-	return fmt.Sprintf(`'%s' [%s]`, p.Nickname(), p.Client.ID())
+	return fmt.Sprintf(`'%s' [%s]`, p.Nickname(), p.ID())
 }
 
 func (p *Player) Nickname() string {
