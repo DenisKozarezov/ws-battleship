@@ -2,3 +2,6 @@ packages:
   ws-battleship-server/internal/domain:
     interfaces:
       Client:
+  ws-battleship-shared/pkg/logger:
+    interfaces:
+      Logger:

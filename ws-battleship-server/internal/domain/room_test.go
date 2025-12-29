@@ -113,11 +113,13 @@ func TestRoomIsFull(t *testing.T) {
 func TestCloseRoom(t *testing.T) {
 	t.Run("close an empty room", func(t *testing.T) {
 		// 1. Arrange
-		logger, _ := logger.NewLogger(true, "")
+		loggerMock := new(logger.MockLogger)
+		loggerMock.On("Infof", mock.Anything, mock.Anything)
+
 		room := NewRoom(t.Context(), &config.AppConfig{
 			RoomCapacityMax: 5,
 			KeepAlivePeriod: time.Second * 5,
-		}, logger)
+		}, loggerMock)
 
 		// 2. Act
 		err := room.Close()
@@ -137,11 +139,13 @@ func TestCloseRoom(t *testing.T) {
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient.On("WriteMessages", mock.Anything).Return()
 
-		logger, _ := logger.NewLogger(true, "")
+		loggerMock := new(logger.MockLogger)
+		loggerMock.On("Infof", mock.Anything, mock.Anything)
+
 		room := NewRoom(t.Context(), &config.AppConfig{
 			RoomCapacityMax: 5,
 			KeepAlivePeriod: time.Second * 5,
-		}, logger)
+		}, loggerMock)
 
 		room.RegisterNewPlayer(NewPlayer(mockClient, events.ClientMetadata{}))
 
@@ -165,11 +169,13 @@ func TestRegisterNewPlayer(t *testing.T) {
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient.On("WriteMessages", mock.Anything).Return()
 
-		logger, _ := logger.NewLogger(true, "")
+		loggerMock := new(logger.MockLogger)
+		loggerMock.On("Infof", mock.Anything, mock.Anything)
+
 		room := NewRoom(t.Context(), &config.AppConfig{
 			RoomCapacityMax: 5,
 			KeepAlivePeriod: time.Second * 5,
-		}, logger)
+		}, loggerMock)
 
 		// 2. Act
 		room.RegisterNewPlayer(NewPlayer(mockClient, events.ClientMetadata{}))
@@ -198,11 +204,13 @@ func TestRegisterNewPlayer(t *testing.T) {
 		mockClient3.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient3.On("WriteMessages", mock.Anything).Return()
 
-		logger, _ := logger.NewLogger(true, "")
+		loggerMock := new(logger.MockLogger)
+		loggerMock.On("Infof", mock.Anything, mock.Anything)
+
 		room := NewRoom(t.Context(), &config.AppConfig{
 			RoomCapacityMax: 5,
 			KeepAlivePeriod: time.Second * 5,
-		}, logger)
+		}, loggerMock)
 
 		// 2. Act
 		room.RegisterNewPlayer(NewPlayer(mockClient1, events.ClientMetadata{}))
@@ -211,5 +219,34 @@ func TestRegisterNewPlayer(t *testing.T) {
 
 		// 3. Assert
 		require.Equalf(t, 3, room.Capacity(), "there should be 3 players")
+	})
+}
+
+func TestUnregisterNewPlayer(t *testing.T) {
+	t.Run("unregister 1 player", func(t *testing.T) {
+		// 1. Arrange
+		mockClient := new(MockClient)
+		mockClient.On("Close").Return(nil)
+		mockClient.On("ID").Return("123")
+		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
+		mockClient.On("WriteMessages", mock.Anything).Return()
+
+		loggerMock := new(logger.MockLogger)
+		loggerMock.On("Infof", mock.Anything, mock.Anything)
+
+		player := NewPlayer(mockClient, events.ClientMetadata{})
+		room := Room{
+			players: map[string]*Player{
+				"123": player,
+			},
+			logger: loggerMock,
+		}
+
+		// 2. Act
+		err := room.UnregisterPlayer(player)
+
+		// 3. Assert
+		require.NoError(t, err)
+		require.Zerof(t, room.Capacity(), "there should be 0 players")
 	})
 }
