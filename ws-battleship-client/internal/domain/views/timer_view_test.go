@@ -2,6 +2,7 @@ package views
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -18,7 +19,7 @@ func TestTimer(t *testing.T) {
 	t.Run("timer is immediately stopped after expiration and then invokes a callback", func(t *testing.T) {
 		// 1. Arrange
 		view := NewTimerView()
-		view.Reset(0.0)
+		view.Reset(1.0)
 
 		var callbackInvoked bool
 		view.SetExpireCallback(func() {
@@ -27,6 +28,7 @@ func TestTimer(t *testing.T) {
 
 		// 2. Act
 		view.Start()
+		time.Sleep(time.Second)
 		view.FixedUpdate()
 
 		// 3. Assert

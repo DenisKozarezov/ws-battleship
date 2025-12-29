@@ -23,55 +23,55 @@ func NewTimerView() *TimerView {
 	}
 }
 
-func (m *TimerView) Init() tea.Cmd {
-	return m.spinner.Tick
+func (v *TimerView) Init() tea.Cmd {
+	return v.spinner.Tick
 }
 
-func (m *TimerView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (v *TimerView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case spinner.TickMsg:
 		var cmd tea.Cmd
-		m.spinner, cmd = m.spinner.Update(msg)
-		return m, cmd
+		v.spinner, cmd = v.spinner.Update(msg)
+		return v, cmd
 	}
-	return m, nil
+	return v, nil
 }
 
-func (m *TimerView) FixedUpdate() {
-	if m.isStopped {
+func (v *TimerView) FixedUpdate() {
+	if v.isStopped {
 		return
 	}
 
-	m.currentTime = time.Until(m.expireTime)
+	v.currentTime = time.Until(v.expireTime)
 
-	if m.currentTime.Seconds() <= 0.0 {
-		m.Stop()
-		if m.expireCallback != nil {
-			m.expireCallback()
+	if v.currentTime.Seconds() <= 0.0 {
+		v.Stop()
+		if v.expireCallback != nil {
+			v.expireCallback()
 		}
 	}
 }
 
-func (m *TimerView) View() string {
-	return fmt.Sprintf("%s %.0f %s", m.spinner.View(), m.currentTime.Abs().Seconds(), "sec")
+func (v *TimerView) View() string {
+	return fmt.Sprintf("%s %.0f %s", v.spinner.View(), v.currentTime.Abs().Seconds(), "sec")
 }
 
-func (m *TimerView) Reset(timeInSeconds int) {
+func (v *TimerView) Reset(timeInSeconds int) {
 	if timeInSeconds < 0 {
 		timeInSeconds = 0
 	}
 
-	m.expireTime = time.Now().Add(time.Second * time.Duration(timeInSeconds))
+	v.expireTime = time.Now().Add(time.Second * time.Duration(timeInSeconds))
 }
 
-func (m *TimerView) Start() {
-	m.isStopped = false
+func (v *TimerView) Start() {
+	v.isStopped = false
 }
 
-func (m *TimerView) Stop() {
-	m.isStopped = true
+func (v *TimerView) Stop() {
+	v.isStopped = true
 }
 
-func (m *TimerView) SetExpireCallback(fn func()) {
-	m.expireCallback = fn
+func (v *TimerView) SetExpireCallback(fn func()) {
+	v.expireCallback = fn
 }

@@ -56,50 +56,47 @@ func NewBoardView() *BoardView {
 	}
 }
 
-func (m *BoardView) Init() tea.Cmd {
-	m.SelectCell(0, 0)
+func (v *BoardView) Init() tea.Cmd {
+	v.SelectCell(0, 0)
 	return nil
 }
 
-func (m *BoardView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (v *BoardView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
-			return m, tea.Quit
-
 		case tea.KeyUp:
-			if m.isSelectable {
-				m.selectionUp()
+			if v.isSelectable {
+				v.selectionUp()
 			}
 		case tea.KeyDown:
-			if m.isSelectable {
-				m.selectionDown()
+			if v.isSelectable {
+				v.selectionDown()
 			}
 		case tea.KeyLeft:
-			if m.isSelectable {
-				m.selectionLeft()
+			if v.isSelectable {
+				v.selectionLeft()
 			}
 		case tea.KeyRight:
-			if m.isSelectable {
-				m.selectionRight()
+			if v.isSelectable {
+				v.selectionRight()
 			}
 		}
 	}
 
-	return m, nil
+	return v, nil
 }
 
-func (m *BoardView) View() string {
-	boardLines := m.board.Lines()
+func (v *BoardView) View() string {
+	boardLines := v.board.Lines()
 
 	var board strings.Builder
 	var numbers strings.Builder
-	numbers.Grow(m.boardSize)
+	numbers.Grow(v.boardSize)
 	numbers.WriteRune('\n')
 
 	for i := range boardLines {
-		board.WriteString(m.renderBoardRow(boardLines[i], i))
+		board.WriteString(v.renderBoardRow(boardLines[i], i))
 		numbers.WriteString(strconv.FormatInt(int64(i+1), 10))
 
 		if i < len(boardLines)-1 {
@@ -109,65 +106,65 @@ func (m *BoardView) View() string {
 	}
 
 	boardView := lipgloss.NewStyle().Border(lipgloss.NormalBorder()).Render(board.String())
-	boardView = lipgloss.JoinVertical(lipgloss.Center, m.alphabet, boardView)
+	boardView = lipgloss.JoinVertical(lipgloss.Center, v.alphabet, boardView)
 	boardView = lipgloss.JoinHorizontal(lipgloss.Center, numbers.String(), boardView)
-	boardView = lipgloss.JoinVertical(lipgloss.Center, boardView, m.nickname)
+	boardView = lipgloss.JoinVertical(lipgloss.Center, boardView, v.nickname)
 
 	return boardView
 }
 
-func (m *BoardView) SetPlayer(player *domain.PlayerModel) {
-	m.board = player.Board
-	m.nickname = player.Nickname
+func (v *BoardView) SetPlayer(player *domain.PlayerModel) {
+	v.board = player.Board
+	v.nickname = player.Nickname
 }
 
-func (m *BoardView) SetSelectable(isSelectable bool) {
-	m.isSelectable = isSelectable
+func (v *BoardView) SetSelectable(isSelectable bool) {
+	v.isSelectable = isSelectable
 }
 
-func (m *BoardView) SelectCell(rowIdx, colIdx int) {
-	m.cellY = math.Clamp(rowIdx, 0, m.boardSize-1)
-	m.cellX = math.Clamp(colIdx, 0, m.boardSize-1)
+func (v *BoardView) SelectCell(rowIdx, colIdx int) {
+	v.cellY = math.Clamp(rowIdx, 0, v.boardSize-1)
+	v.cellX = math.Clamp(colIdx, 0, v.boardSize-1)
 
-	m.selectedRowIdx = m.cellY
+	v.selectedRowIdx = v.cellY
 
 	// String: a   b   c   d   e    f     g     h     j     k
 	// Index:  0   1   2   3   4    5     6     7     8     9
 	// Column: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
-	m.selectedColIdx = math.Clamp(colIdx*2, 0, len(m.alphabet)-1)
+	v.selectedColIdx = math.Clamp(colIdx*2, 0, len(v.alphabet)-1)
 }
 
-func (m *BoardView) renderBoardRow(str string, currentRowIdx int) string {
-	if !m.isSelectable {
+func (v *BoardView) renderBoardRow(str string, currentRowIdx int) string {
+	if !v.isSelectable {
 		return str
 	}
 
-	if m.selectedRowIdx == currentRowIdx {
-		return lipgloss.StyleRunes(str, []int{m.selectedColIdx}, m.getSelectedCellHighlightStyle(), highlightStyle)
+	if v.selectedRowIdx == currentRowIdx {
+		return lipgloss.StyleRunes(str, []int{v.selectedColIdx}, v.getSelectedCellHighlightStyle(), highlightStyle)
 	}
-	return lipgloss.StyleRunes(str, []int{m.selectedColIdx}, highlightStyle, defaultText)
+	return lipgloss.StyleRunes(str, []int{v.selectedColIdx}, highlightStyle, defaultText)
 }
 
-func (m *BoardView) getSelectedCellHighlightStyle() lipgloss.Style {
-	if m.board.IsCellEmpty(byte(m.cellY), byte(m.cellX)) {
+func (v *BoardView) getSelectedCellHighlightStyle() lipgloss.Style {
+	if v.board.IsCellEmpty(byte(v.cellY), byte(v.cellX)) {
 		return highlightAllowedCell
 	} else {
 		return highlightForbiddenCell
 	}
 }
 
-func (m *BoardView) selectionUp() {
-	m.SelectCell(m.cellY-1, m.cellX)
+func (v *BoardView) selectionUp() {
+	v.SelectCell(v.cellY-1, v.cellX)
 }
 
-func (m *BoardView) selectionDown() {
-	m.SelectCell(m.cellY+1, m.cellX)
+func (v *BoardView) selectionDown() {
+	v.SelectCell(v.cellY+1, v.cellX)
 }
 
-func (m *BoardView) selectionLeft() {
-	m.SelectCell(m.cellY, m.cellX-1)
+func (v *BoardView) selectionLeft() {
+	v.SelectCell(v.cellY, v.cellX-1)
 }
 
-func (m *BoardView) selectionRight() {
-	m.SelectCell(m.cellY, m.cellX+1)
+func (v *BoardView) selectionRight() {
+	v.SelectCell(v.cellY, v.cellX+1)
 }

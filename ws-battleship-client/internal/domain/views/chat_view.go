@@ -56,39 +56,37 @@ Type a message and press Enter to send.`)
 	}
 }
 
-func (m *ChatView) Init() tea.Cmd {
+func (v *ChatView) Init() tea.Cmd {
 	return textarea.Blink
 }
 
-func (m *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (v *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
 		vpCmd tea.Cmd
 	)
 
-	m.textarea, tiCmd = m.textarea.Update(msg)
-	m.viewport, vpCmd = m.viewport.Update(msg)
+	v.textarea, tiCmd = v.textarea.Update(msg)
+	v.viewport, vpCmd = v.viewport.Update(msg)
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC, tea.KeyEsc:
-			return m, tea.Quit
 		case tea.KeyEnter:
-			m.content = append(m.content, senderStyle.Render("You: ")+m.textarea.Value())
-			m.SetContent(m.content)
-			m.textarea.Reset()
-			m.viewport.GotoBottom()
+			v.content = append(v.content, senderStyle.Render("You: ")+v.textarea.Value())
+			v.SetContent(v.content)
+			v.textarea.Reset()
+			v.viewport.GotoBottom()
 		}
 	}
 
-	return m, tea.Batch(tiCmd, vpCmd)
+	return v, tea.Batch(tiCmd, vpCmd)
 }
 
-func (m *ChatView) View() string {
-	return lipgloss.JoinVertical(lipgloss.Top, logsStyle.Render(m.viewport.View()), m.textarea.View())
+func (v *ChatView) View() string {
+	return lipgloss.JoinVertical(lipgloss.Top, logsStyle.Render(v.viewport.View()), v.textarea.View())
 }
 
-func (m *ChatView) SetContent(content []string) {
-	m.viewport.SetContent(lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(content, "\n")))
+func (v *ChatView) SetContent(content []string) {
+	v.viewport.SetContent(lipgloss.NewStyle().Width(v.viewport.Width).Render(strings.Join(content, "\n")))
 }

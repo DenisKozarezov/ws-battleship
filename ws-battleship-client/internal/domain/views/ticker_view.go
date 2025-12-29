@@ -20,46 +20,46 @@ func NewTickerView() *TickerView {
 	}
 }
 
-func (m *TickerView) Init() tea.Cmd {
-	m.Reset()
+func (v *TickerView) Init() tea.Cmd {
+	v.Reset()
 	return nil
 }
 
-func (m *TickerView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m, nil
+func (v *TickerView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return v, nil
 }
 
-func (m *TickerView) FixedUpdate() {
-	if m.isStopped {
+func (v *TickerView) FixedUpdate() {
+	if v.isStopped {
 		return
 	}
 
-	m.elapsedTime = time.Since(m.startTime)
+	v.elapsedTime = time.Since(v.startTime)
 }
 
-func (m *TickerView) View() string {
-	return m.elapsedTimeString()
+func (v *TickerView) View() string {
+	return v.elapsedTimeString()
 }
 
-func (m *TickerView) Start() {
-	m.isStopped = false
-	m.Reset()
+func (v *TickerView) Start() {
+	v.isStopped = false
+	v.Reset()
 }
 
-func (m *TickerView) Stop() {
-	m.isStopped = true
+func (v *TickerView) Stop() {
+	v.isStopped = true
 }
 
-func (m *TickerView) Reset() {
-	m.startTime = time.Now()
+func (v *TickerView) Reset() {
+	v.startTime = time.Now()
 }
 
-func (m *TickerView) ElapsedTime() time.Duration {
-	return m.elapsedTime
+func (v *TickerView) ElapsedTime() time.Duration {
+	return v.elapsedTime
 }
 
-func (m *TickerView) elapsedTimeString() string {
-	elapsedSeconds := int(m.elapsedTime.Seconds())
+func (v *TickerView) elapsedTimeString() string {
+	elapsedSeconds := int(v.elapsedTime.Seconds())
 	minutes := elapsedSeconds / 60
 	elapsedSeconds %= 60
 

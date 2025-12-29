@@ -272,7 +272,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 
 		// 2. Act
 		view.SetSelectable(false)
-		view.Update(&tea.KeyMsg{Type: tea.KeyUp})
+		view.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 		// 3. Assert
 		require.Equal(t, 5, view.cellY)
@@ -287,7 +287,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 
 		// 2. Act
 		view.SetSelectable(false)
-		view.Update(&tea.KeyMsg{Type: tea.KeyDown})
+		view.Update(tea.KeyMsg{Type: tea.KeyDown})
 
 		// 3. Assert
 		require.Equal(t, 5, view.cellY)
@@ -302,7 +302,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 
 		// 2. Act
 		view.SetSelectable(false)
-		view.Update(&tea.KeyMsg{Type: tea.KeyLeft})
+		view.Update(tea.KeyMsg{Type: tea.KeyLeft})
 
 		// 3. Assert
 		require.Equal(t, 5, view.cellY)
@@ -317,7 +317,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 
 		// 2. Act
 		view.SetSelectable(false)
-		view.Update(&tea.KeyMsg{Type: tea.KeyRight})
+		view.Update(tea.KeyMsg{Type: tea.KeyRight})
 
 		// 3. Assert
 		require.Equal(t, 5, view.cellY)
