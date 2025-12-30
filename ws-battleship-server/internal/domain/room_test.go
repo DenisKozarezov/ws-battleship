@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 	"ws-battleship-server/internal/config"
-	"ws-battleship-shared/events"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/pkg/logger"
 
 	"github.com/stretchr/testify/mock"
@@ -147,7 +147,7 @@ func TestCloseRoom(t *testing.T) {
 			KeepAlivePeriod: time.Second * 5,
 		}, loggerMock)
 
-		room.RegisterNewPlayer(NewPlayer(mockClient, events.ClientMetadata{}))
+		room.RegisterNewPlayer(NewPlayer(mockClient, domain.ClientMetadata{}))
 
 		// 2. Act
 		err := room.Close()
@@ -178,10 +178,13 @@ func TestRegisterNewPlayer(t *testing.T) {
 		}, loggerMock)
 
 		// 2. Act
-		room.RegisterNewPlayer(NewPlayer(mockClient, events.ClientMetadata{}))
+		newPlayer := NewPlayer(mockClient, domain.ClientMetadata{})
+		room.RegisterNewPlayer(newPlayer)
 
 		// 3. Assert
 		require.Equalf(t, 1, room.Capacity(), "there should be 1 player")
+		_, found := room.players[newPlayer.ID()]
+		require.Truef(t, found, "wrong player is added")
 	})
 
 	t.Run("register some new players", func(t *testing.T) {
@@ -213,15 +216,15 @@ func TestRegisterNewPlayer(t *testing.T) {
 		}, loggerMock)
 
 		// 2. Act
-		room.RegisterNewPlayer(NewPlayer(mockClient1, events.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient2, events.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient3, events.ClientMetadata{}))
+		room.RegisterNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{}))
+		room.RegisterNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{}))
+		room.RegisterNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{}))
 
 		// 3. Assert
 		require.Equalf(t, 3, room.Capacity(), "there should be 3 players")
 	})
 
-	t.Run("check we can't register a new player when the room is full", func(t *testing.T) {
+	t.Run("check we can't register a new player when room is full", func(t *testing.T) {
 		// 1. Arrange
 		mockClient1 := new(MockClient)
 		mockClient1.On("Close").Return(nil)
@@ -250,9 +253,9 @@ func TestRegisterNewPlayer(t *testing.T) {
 		}, loggerMock)
 
 		// 2. Act
-		room.RegisterNewPlayer(NewPlayer(mockClient1, events.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient2, events.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient3, events.ClientMetadata{}))
+		room.RegisterNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{}))
+		room.RegisterNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{}))
+		room.RegisterNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{}))
 
 		// 3. Assert
 		require.Equalf(t, 2, room.Capacity(), "there should be only 2 players")
@@ -271,7 +274,7 @@ func TestUnregisterNewPlayer(t *testing.T) {
 		loggerMock := new(logger.MockLogger)
 		loggerMock.On("Infof", mock.Anything, mock.Anything)
 
-		player := NewPlayer(mockClient, events.ClientMetadata{})
+		player := NewPlayer(mockClient, domain.ClientMetadata{})
 		room := Room{
 			players: map[string]*Player{
 				"123": player,

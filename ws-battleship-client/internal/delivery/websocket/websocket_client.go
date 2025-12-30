@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 	"ws-battleship-client/internal/config"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
@@ -32,7 +33,7 @@ func NewClient(cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
 	}
 }
 
-func (c *WebsocketClient) Connect(ctx context.Context, metadata events.ClientMetadata) error {
+func (c *WebsocketClient) Connect(ctx context.Context, metadata domain.ClientMetadata) error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 		ReadBufferSize:   events.ReadBufferBytesMax,
@@ -41,7 +42,7 @@ func (c *WebsocketClient) Connect(ctx context.Context, metadata events.ClientMet
 
 	serverUrl := fmt.Sprintf("%s://%s%s", websocketProtocol, c.cfg.ServerHost, websocketEndpoint)
 
-	conn, _, err := dialer.DialContext(ctx, serverUrl, events.ParseClientMetadataToHeaders(metadata))
+	conn, _, err := dialer.DialContext(ctx, serverUrl, domain.ParseClientMetadataToHeaders(metadata))
 	if err != nil {
 		return fmt.Errorf("failed to dial: %w", err)
 	}

@@ -17,7 +17,7 @@ import (
 
 type Client interface {
 	Messages() <-chan events.Event
-	Connect(ctx context.Context, metadata events.ClientMetadata) error
+	Connect(ctx context.Context, metadata domain.ClientMetadata) error
 	Shutdown() error
 }
 
@@ -64,7 +64,7 @@ func (a *App) startClient(ctx context.Context, wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
 
-		metadata := events.ClientMetadata{Nickname: "Player 1"}
+		metadata := domain.ClientMetadata{Nickname: "Player 1"}
 		if err := a.client.Connect(ctx, metadata); err != nil {
 			a.logger.Fatalf("failed to connect to server: %s", err)
 		}
@@ -94,13 +94,14 @@ func (a *App) handleConnection(ctx context.Context) {
 
 func (a *App) handleMessage(event events.Event) {
 	switch event.Type {
-	case events.GameStartEvent:
-		var gameModel domain.GameModel
-		if err := json.Unmarshal(event.Data, &gameModel); err != nil {
+	case events.GameStartEventType:
+		var gameStartEvent events.GameStartEvent
+		if err := json.Unmarshal(event.Data, &gameStartEvent); err != nil {
 			a.logger.Errorf("failed to unmarshal: %s", err)
 			return
 		}
-		a.gameView.StartGame(gameModel)
+
+		a.gameView.StartGame(gameStartEvent.GameModel)
 	}
 }
 

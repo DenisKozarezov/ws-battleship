@@ -3,7 +3,6 @@ package domain
 import (
 	"fmt"
 	"ws-battleship-shared/domain"
-	"ws-battleship-shared/events"
 )
 
 type Player struct {
@@ -11,7 +10,7 @@ type Player struct {
 	Model *domain.PlayerModel
 }
 
-func NewPlayer(client Client, metadata events.ClientMetadata) *Player {
+func NewPlayer(client Client, metadata domain.ClientMetadata) *Player {
 	return &Player{
 		Model:  domain.NewPlayerModel(metadata),
 		Client: client,

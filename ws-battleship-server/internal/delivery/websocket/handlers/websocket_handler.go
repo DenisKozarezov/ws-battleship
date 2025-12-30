@@ -8,6 +8,7 @@ import (
 	"ws-battleship-server/internal/config"
 	"ws-battleship-server/internal/delivery/http/response"
 	"ws-battleship-server/internal/domain"
+	shared "ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
@@ -59,7 +60,7 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 	}
 
 	newClient := NewWebsocketClient(conn, l.logger)
-	newPlayer := domain.NewPlayer(newClient, events.ParseClientMetadataFromHeaders(r))
+	newPlayer := domain.NewPlayer(newClient, shared.ParseClientMetadataFromHeaders(r))
 
 	select {
 	case l.joinCh <- newPlayer:

@@ -11,7 +11,7 @@ type Client interface {
 	ID() ClientID
 	Ping() error
 	Close()
-	SendMessage(eventType events.EventType, obj any) error
+	SendMessage(e events.Event) error
 	ReadMessages(ctx context.Context, messagesCh chan<- events.Event)
 	WriteMessages(ctx context.Context)
 }

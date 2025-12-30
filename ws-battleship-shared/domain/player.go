@@ -2,7 +2,7 @@ package domain
 
 import (
 	"math/rand"
-	"ws-battleship-shared/events"
+	"net/http"
 )
 
 type PlayerModel struct {
@@ -10,7 +10,7 @@ type PlayerModel struct {
 	Nickname string
 }
 
-func NewPlayerModel(metadata events.ClientMetadata) *PlayerModel {
+func NewPlayerModel(metadata ClientMetadata) *PlayerModel {
 	return &PlayerModel{
 		Board:    shuffleBoard(),
 		Nickname: metadata.Nickname,
@@ -30,4 +30,20 @@ func shuffleBoard() Board {
 	}
 
 	return b
+}
+
+type ClientMetadata struct {
+	Nickname string
+}
+
+func ParseClientMetadataToHeaders(metadata ClientMetadata) http.Header {
+	headers := make(http.Header)
+	headers.Set("X-Nickname", metadata.Nickname)
+	return headers
+}
+
+func ParseClientMetadataFromHeaders(r *http.Request) ClientMetadata {
+	return ClientMetadata{
+		Nickname: r.Header.Get("X-Nickname"),
+	}
 }

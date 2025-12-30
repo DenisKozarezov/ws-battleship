@@ -1,3 +1,5 @@
+filename: "{{.InterfaceName}}_mock.go"
+inpackage: true
 packages:
   ws-battleship-server/internal/domain:
     interfaces:

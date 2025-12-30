@@ -134,12 +134,12 @@ func (r *Room) UnregisterPlayer(player *Player) error {
 	return nil
 }
 
-func (r *Room) Broadcast(eventType events.EventType, obj any) {
+func (r *Room) Broadcast(e events.Event) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	for _, player := range r.players {
-		if err := player.SendMessage(eventType, obj); err != nil {
+		if err := player.SendMessage(e); err != nil {
 			r.logger.Errorf("failed to send a broadcast message to player id=%s", player.ID())
 		}
 	}
@@ -162,7 +162,9 @@ func (r *Room) StartMatch() {
 
 	gameModel := domain.NewGameModel(playerModels)
 
-	r.Broadcast(events.GameStartEvent, gameModel)
+	e, _ := events.NewGameStartEvent(gameModel)
+
+	r.Broadcast(e)
 }
 
 func (r *Room) handleConnections(ctx context.Context) {
@@ -177,14 +179,10 @@ func (r *Room) handleConnections(ctx context.Context) {
 
 		case msg, opened := <-r.readCh:
 			if opened {
-				r.handleMessage(msg)
+				r.handleEvent(msg)
 			}
 		}
 	}
-}
-
-func (r *Room) handleMessage(event events.Event) {
-	r.logger.Debug("Event Type: %d; Timestamp: %s; Payload: %s", event.Type, event.Timestamp, string(event.Data))
 }
 
 func (r *Room) pingPlayers(ctx context.Context) {
@@ -229,4 +227,9 @@ func (r *Room) pingPlayer(player *Player, deadPlayer chan<- *Player) {
 		r.logger.Errorf("failed to ping a player id=%s: %s", player.ID(), err)
 		deadPlayer <- player
 	}
+}
+
+func (r *Room) handleEvent(e events.Event) {
+	r.logger.Debug("[room: %s] type: %d; timestamp: %s", r.ID(), e.Type, e.Timestamp)
+
 }

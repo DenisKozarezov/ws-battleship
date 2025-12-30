@@ -59,17 +59,8 @@ func (c *WebsocketClient) Ping() error {
 	return c.conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(pingTimeout))
 }
 
-func (c *WebsocketClient) SendMessage(eventType events.EventType, obj any) error {
-	payload, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	payload, err = json.Marshal(events.Event{
-		Type:      eventType,
-		Timestamp: time.Now().Format(time.RFC3339),
-		Data:      payload,
-	})
+func (c *WebsocketClient) SendMessage(e events.Event) error {
+	payload, err := json.Marshal(e)
 	if err != nil {
 		return err
 	}

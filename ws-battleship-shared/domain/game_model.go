@@ -5,8 +5,8 @@ type GameModel struct {
 	Messages []string
 }
 
-func NewGameModel(players map[string]*PlayerModel) *GameModel {
-	return &GameModel{
+func NewGameModel(players map[string]*PlayerModel) GameModel {
+	return GameModel{
 		Players: players,
 	}
 }

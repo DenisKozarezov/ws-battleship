@@ -1,6 +1,10 @@
 package events
 
-import "net/http"
+import (
+	"encoding/json"
+	"time"
+	"ws-battleship-shared/domain"
+)
 
 type EventType = string
 
@@ -11,27 +15,34 @@ const (
 
 const (
 	PlayerJoinedEventType = "join"
-	GameStartEvent        = "game_start"
+	GameStartEventType    = "game_start"
 )
 
 type Event struct {
-	Type      EventType `json:"type,omitempty"`
-	Timestamp string    `json:"timestamp"`
-	Data      []byte    `json:"data"`
+	Timestamp string          `json:"timestamp"`
+	Type      EventType       `json:"type"`
+	Data      json.RawMessage `json:"data"`
 }
 
-type ClientMetadata struct {
-	Nickname string
-}
-
-func ParseClientMetadataToHeaders(metadata ClientMetadata) http.Header {
-	headers := make(http.Header)
-	headers.Set("X-Nickname", metadata.Nickname)
-	return headers
-}
-
-func ParseClientMetadataFromHeaders(r *http.Request) ClientMetadata {
-	return ClientMetadata{
-		Nickname: r.Header.Get("X-Nickname"),
+func NewEvent(eventType EventType, data any) (Event, error) {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return Event{}, err
 	}
+
+	return Event{
+		Type:      eventType,
+		Timestamp: time.Now().Format(time.RFC3339),
+		Data:      jsonData,
+	}, nil
+}
+
+type GameStartEvent struct {
+	GameModel domain.GameModel `json:"game_model"`
+}
+
+func NewGameStartEvent(gameModel domain.GameModel) (Event, error) {
+	return NewEvent(GameStartEventType, GameStartEvent{
+		GameModel: gameModel,
+	})
 }

@@ -206,16 +206,16 @@ func (_c *MockClient_ReadMessages_Call) RunAndReturn(run func(ctx context.Contex
 }
 
 // SendMessage provides a mock function for the type MockClient
-func (_mock *MockClient) SendMessage(eventType events.EventType, obj any) error {
-	ret := _mock.Called(eventType, obj)
+func (_mock *MockClient) SendMessage(e events.Event) error {
+	ret := _mock.Called(e)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SendMessage")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(events.EventType, any) error); ok {
-		r0 = returnFunc(eventType, obj)
+	if returnFunc, ok := ret.Get(0).(func(events.Event) error); ok {
+		r0 = returnFunc(e)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -228,25 +228,19 @@ type MockClient_SendMessage_Call struct {
 }
 
 // SendMessage is a helper method to define mock.On call
-//   - eventType events.EventType
-//   - obj any
-func (_e *MockClient_Expecter) SendMessage(eventType interface{}, obj interface{}) *MockClient_SendMessage_Call {
-	return &MockClient_SendMessage_Call{Call: _e.mock.On("SendMessage", eventType, obj)}
+//   - e events.Event
+func (_e *MockClient_Expecter) SendMessage(e interface{}) *MockClient_SendMessage_Call {
+	return &MockClient_SendMessage_Call{Call: _e.mock.On("SendMessage", e)}
 }
 
-func (_c *MockClient_SendMessage_Call) Run(run func(eventType events.EventType, obj any)) *MockClient_SendMessage_Call {
+func (_c *MockClient_SendMessage_Call) Run(run func(e events.Event)) *MockClient_SendMessage_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 events.EventType
+		var arg0 events.Event
 		if args[0] != nil {
-			arg0 = args[0].(events.EventType)
-		}
-		var arg1 any
-		if args[1] != nil {
-			arg1 = args[1].(any)
+			arg0 = args[0].(events.Event)
 		}
 		run(
 			arg0,
-			arg1,
 		)
 	})
 	return _c
@@ -257,7 +251,7 @@ func (_c *MockClient_SendMessage_Call) Return(err error) *MockClient_SendMessage
 	return _c
 }
 
-func (_c *MockClient_SendMessage_Call) RunAndReturn(run func(eventType events.EventType, obj any) error) *MockClient_SendMessage_Call {
+func (_c *MockClient_SendMessage_Call) RunAndReturn(run func(e events.Event) error) *MockClient_SendMessage_Call {
 	_c.Call.Return(run)
 	return _c
 }
