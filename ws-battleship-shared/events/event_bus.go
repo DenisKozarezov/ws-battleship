@@ -1,25 +1,24 @@
-package application
+package events
 
 import (
 	"context"
 	"sync"
-	"ws-battleship-shared/events"
 )
 
-type EventHandler = func(context.Context, events.Event) error
+type EventHandler = func(context.Context, Event) error
 
 type EventBus struct {
 	mu       sync.RWMutex
-	handlers map[events.EventType][]EventHandler
+	handlers map[EventType][]EventHandler
 }
 
 func NewEventBus() *EventBus {
 	return &EventBus{
-		handlers: make(map[events.EventType][]EventHandler),
+		handlers: make(map[EventType][]EventHandler),
 	}
 }
 
-func (r *EventBus) Subscribe(eventType events.EventType, handlers ...EventHandler) {
+func (r *EventBus) Subscribe(eventType EventType, handlers ...EventHandler) {
 	if len(handlers) == 0 {
 		return
 	}
@@ -29,7 +28,7 @@ func (r *EventBus) Subscribe(eventType events.EventType, handlers ...EventHandle
 	r.mu.Unlock()
 }
 
-func (r *EventBus) Unsubscribe(eventType events.EventType) {
+func (r *EventBus) Unsubscribe(eventType EventType) {
 	r.mu.RLock()
 	_, found := r.handlers[eventType]
 	r.mu.RUnlock()
@@ -43,14 +42,17 @@ func (r *EventBus) Unsubscribe(eventType events.EventType) {
 	r.mu.Unlock()
 }
 
-func (r *EventBus) Invoke(ctx context.Context, e events.Event) {
+func (r *EventBus) Invoke(ctx context.Context, e Event) error {
 	r.mu.RLock()
 	handlers, found := r.handlers[e.Type]
 	r.mu.RUnlock()
 
 	if found {
 		for i := range handlers {
-			handlers[i](ctx, e)
+			if err := handlers[i](ctx, e); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }

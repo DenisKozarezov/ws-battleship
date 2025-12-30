@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 	"ws-battleship-client/internal/domain/views"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
@@ -37,7 +38,7 @@ func (p *MatchProcessor) OnPlayerJoinedHandler(ctx context.Context, e events.Eve
 		return fmt.Errorf("failed to unmarshal event payload: %w", err)
 	}
 
-	p.logger.Infof("player %s joined the match", playerJoinedEvent.Player.Nickname)
+	//p.logger.Infof("player %s joined the match", playerJoinedEvent.Player.Nickname)
 	return nil
 }
 
@@ -47,6 +48,26 @@ func (p *MatchProcessor) OnPlayerLeavedHandler(ctx context.Context, e events.Eve
 		return fmt.Errorf("failed to unmarshal event payload: %w", err)
 	}
 
-	p.logger.Infof("player %s leaved the match", playerLeavedEvent.Player.Nickname)
+	//p.logger.Infof("player %s leaved the match", playerLeavedEvent.Player.Nickname)
+	return nil
+}
+
+func (p *MatchProcessor) OnSendMessageHandler(ctx context.Context, e events.Event) error {
+	var sendMessageEvent events.SendMessageEvent
+	if err := json.Unmarshal(e.Data, &sendMessageEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	timestamp, err := time.Parse(events.TimestampFormat, e.Timestamp)
+	if err != nil {
+		return fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+
+	p.gameView.AppendMessageInChat(views.ChatMessage{
+		Sender:         sendMessageEvent.Sender,
+		Message:        sendMessageEvent.Message,
+		IsNotification: sendMessageEvent.IsNotification,
+		Timestamp:      timestamp.Format(time.TimeOnly),
+	})
 	return nil
 }

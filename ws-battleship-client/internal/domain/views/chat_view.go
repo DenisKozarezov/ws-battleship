@@ -2,6 +2,7 @@ package views
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -16,10 +17,18 @@ const (
 
 var (
 	logsStyle = lipgloss.NewStyle().
-			Width(chatWidth).Height(chatHeight). //Background(lipgloss.Color("#696969")).
+			Width(chatWidth).Height(chatHeight).
 			Border(lipgloss.RoundedBorder())
 
 	senderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+
+	notificationStyle = lipgloss.NewStyle().
+				Align(lipgloss.Center).
+				Background(lipgloss.Color("6")).
+				Foreground(lipgloss.Color("#ffffff")).
+				Bold(true)
+
+	viewportStyle = lipgloss.NewStyle().Width(chatWidth)
 )
 
 type ChatView struct {
@@ -31,7 +40,6 @@ type ChatView struct {
 func NewChatView() *ChatView {
 	ta := textarea.New()
 	ta.Placeholder = "Press Enter to send a message..."
-	ta.Focus()
 
 	ta.Prompt = "┃ "
 	ta.CharLimit = 280
@@ -41,22 +49,20 @@ func NewChatView() *ChatView {
 
 	// Remove cursor line styling
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle()
-
 	ta.ShowLineNumbers = false
-
-	vp := viewport.New(chatWidth, chatHeight)
-	vp.SetContent(`Welcome to the chat room!
-Type a message and press Enter to send.`)
-
 	ta.KeyMap.InsertNewline.SetEnabled(false)
+
+	va := viewport.New(chatWidth, chatHeight)
+	va.SetContent("Welcome to the chat room!\nType a message and press Enter to send.")
 
 	return &ChatView{
 		textarea: ta,
-		viewport: vp,
+		viewport: va,
 	}
 }
 
 func (v *ChatView) Init() tea.Cmd {
+	v.textarea.Focus()
 	return textarea.Blink
 }
 
@@ -73,8 +79,11 @@ func (v *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			v.content = append(v.content, senderStyle.Render("You: ")+v.textarea.Value())
-			v.SetContent(v.content)
+			v.AppendMessage(ChatMessage{
+				Sender:    "You",
+				Message:   v.textarea.Value(),
+				Timestamp: time.Now().Format(time.TimeOnly),
+			})
 			v.textarea.Reset()
 			v.viewport.GotoBottom()
 		}
@@ -87,6 +96,31 @@ func (v *ChatView) View() string {
 	return lipgloss.JoinVertical(lipgloss.Top, logsStyle.Render(v.viewport.View()), v.textarea.View())
 }
 
+type ChatMessage struct {
+	Sender         string
+	Message        string
+	IsNotification bool
+	Timestamp      string
+}
+
+func (v *ChatView) AppendMessage(msg ChatMessage) {
+	var builder strings.Builder
+
+	if msg.IsNotification {
+		builder.WriteString(lipgloss.PlaceHorizontal(chatWidth, lipgloss.Center, notificationStyle.Render(" "+msg.Timestamp+" "+msg.Message+" ")))
+	} else {
+		builder.WriteString(senderStyle.Render(msg.Timestamp+" "+msg.Sender+": ") + msg.Message)
+	}
+
+	v.SetContent(append(v.content, builder.String()))
+	v.viewport.GotoBottom()
+}
+
+func (v *ChatView) Clear() {
+	v.SetContent(nil)
+}
+
 func (v *ChatView) SetContent(content []string) {
-	v.viewport.SetContent(lipgloss.NewStyle().Width(v.viewport.Width).Render(strings.Join(content, "\n")))
+	v.content = content
+	v.viewport.SetContent(viewportStyle.Render(strings.Join(content, "\n")))
 }

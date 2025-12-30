@@ -13,9 +13,13 @@ const (
 	WriteBufferBytesMax = 1024
 )
 
+const TimestampFormat = time.RFC3339
+
 const (
 	PlayerJoinedEventType = "join"
+	PlayerLeavedEventType = "leave"
 	GameStartEventType    = "game_start"
+	SendMessageType       = "send_message"
 )
 
 type Event struct {
@@ -32,7 +36,7 @@ func NewEvent(eventType EventType, data any) (Event, error) {
 
 	return Event{
 		Type:      eventType,
-		Timestamp: time.Now().Format(time.RFC3339),
+		Timestamp: time.Now().Format(TimestampFormat),
 		Data:      jsonData,
 	}, nil
 }
@@ -62,7 +66,27 @@ type PlayerLeavedEvent struct {
 }
 
 func NewPlayerLeavedEvent(leavePlayer *domain.PlayerModel) (Event, error) {
-	return NewEvent(PlayerJoinedEventType, PlayerLeavedEvent{
+	return NewEvent(PlayerLeavedEventType, PlayerLeavedEvent{
 		Player: leavePlayer,
+	})
+}
+
+type SendMessageEvent struct {
+	Sender         string `json:"sender,omitzero"`
+	Message        string `json:"message"`
+	IsNotification bool   `json:"is_notify,omitzero"`
+}
+
+func NewSendMessageEvent(sender string, message string) (Event, error) {
+	return NewEvent(SendMessageType, SendMessageEvent{
+		Sender:  sender,
+		Message: message,
+	})
+}
+
+func NewChatNotificationEvent(message string) (Event, error) {
+	return NewEvent(SendMessageType, SendMessageEvent{
+		Message:        message,
+		IsNotification: true,
 	})
 }

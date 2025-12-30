@@ -25,7 +25,7 @@ type App struct {
 	client   Client
 	logger   logger.Logger
 	gameView *views.GameView
-	eventBus *EventBus
+	eventBus *events.EventBus
 }
 
 func NewApp(cfg *config.Config, logger logger.Logger) *App {
@@ -33,9 +33,11 @@ func NewApp(cfg *config.Config, logger logger.Logger) *App {
 	gameView := views.NewGameView(&cfg.Game)
 	processor := NewMatchProcessor(logger, gameView)
 
-	eventBus := NewEventBus()
+	eventBus := events.NewEventBus()
 	eventBus.Subscribe(events.GameStartEventType, processor.OnGameStartHandler)
 	eventBus.Subscribe(events.PlayerJoinedEventType, processor.OnPlayerJoinedHandler)
+	eventBus.Subscribe(events.PlayerLeavedEventType, processor.OnPlayerLeavedHandler)
+	eventBus.Subscribe(events.SendMessageType, processor.OnSendMessageHandler)
 
 	return &App{
 		cfg:      cfg,
@@ -94,8 +96,12 @@ func (a *App) handleConnection(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case msg, opened := <-a.client.Messages():
-			if opened {
-				a.eventBus.Invoke(ctx, msg)
+			if !opened {
+				return
+			}
+
+			if err := a.eventBus.Invoke(ctx, msg); err != nil {
+				a.logger.Errorf("error while invoking event bus: %s", err)
 			}
 		}
 	}

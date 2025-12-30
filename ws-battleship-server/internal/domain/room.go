@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -24,6 +25,7 @@ type Room struct {
 	joinCh     chan *Player
 	leaveCh    chan *Player
 	messagesCh chan events.Event
+	closeCh    chan struct{}
 
 	id     string
 	cfg    *config.AppConfig
@@ -40,6 +42,7 @@ func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *
 		joinCh:     make(chan *Player, cfg.RoomCapacityMax),
 		leaveCh:    make(chan *Player, cfg.RoomCapacityMax),
 		messagesCh: make(chan events.Event, events.ReadBufferBytesMax),
+		closeCh:    make(chan struct{}),
 		id:         uuid.New().String(),
 		cfg:        cfg,
 		logger:     logger,
@@ -81,6 +84,7 @@ func (r *Room) Close() error {
 
 	r.once.Do(func() {
 		r.cancel()
+		close(r.closeCh)
 		close(r.messagesCh)
 		close(r.joinCh)
 		close(r.leaveCh)
@@ -108,12 +112,32 @@ func (r *Room) JoinNewPlayer(newPlayer *Player) error {
 		return ErrRoomIsFull
 	}
 
-	r.joinCh <- newPlayer
+	select {
+	case <-r.closeCh:
+		return nil
+	default:
+	}
+
+	select {
+	case <-r.closeCh:
+	case r.joinCh <- newPlayer:
+	default:
+	}
 	return nil
 }
 
 func (r *Room) LeavePlayer(player *Player) {
-	r.leaveCh <- player
+	select {
+	case <-r.closeCh:
+		return
+	default:
+	}
+
+	select {
+	case <-r.closeCh:
+	case r.leaveCh <- player:
+	default:
+	}
 }
 
 func (r *Room) Broadcast(e events.Event) {
@@ -144,9 +168,8 @@ func (r *Room) StartMatch() {
 
 	gameModel := domain.NewGameModel(playerModels)
 
-	e, _ := events.NewGameStartEvent(gameModel)
-
-	r.Broadcast(e)
+	event, _ := events.NewGameStartEvent(gameModel)
+	r.Broadcast(event)
 }
 
 func (r *Room) handleConnections(ctx context.Context) {
@@ -159,31 +182,20 @@ func (r *Room) handleConnections(ctx context.Context) {
 		case <-ctx.Done():
 			return
 
+		case <-r.closeCh:
+			return
+
 		case joinedPlayer, opened := <-r.joinCh:
-			if opened {
-				if err := r.registerNewPlayer(joinedPlayer); err == nil {
-					r.logger.Errorf("failed to register new player: %s", err)
-					return
-				}
-
-				e, _ := events.NewPlayerJoinedEvent(joinedPlayer.Model)
-				r.Broadcast(e)
-
-				r.logger.Infof("player %s is connected to room id=%s [players: %d]", joinedPlayer.String(), r.ID(), r.Capacity())
+			if !opened {
+				return
 			}
+			r.onPlayerJoinedHandler(joinedPlayer)
 
 		case leavedPlayer, opened := <-r.leaveCh:
-			if opened {
-				if err := r.unregisterPlayer(leavedPlayer); err != nil {
-					r.logger.Errorf("failed to unregister player: %s", err)
-					return
-				}
-
-				e, _ := events.NewPlayerLeavedEvent(leavedPlayer.Model)
-				r.Broadcast(e)
-
-				r.logger.Infof("player %s was unregistered from the room id=%s [players: %d]", leavedPlayer.String(), r.ID(), r.Capacity())
+			if !opened {
+				return
 			}
+			r.onPlayerLeavedHandler(leavedPlayer)
 
 		case msg, opened := <-r.messagesCh:
 			if opened {
@@ -206,23 +218,22 @@ func (r *Room) pingPlayers(ctx context.Context) {
 		case <-ctx.Done():
 			return
 
+		case <-r.closeCh:
+			return
+
 		// We should periodically send a ping-message to all clients just to be ensured, that the clients
 		// are still alive. If no, then the server unregisters potentially dead clients. There are literally
 		// zero reasons to keep stalled connections alive, so the server deallocates them for other needs.
 		case <-pingTicker.C:
 			r.mu.RLock()
 			for _, player := range r.players {
-				go r.pingPlayer(player)
+				if err := player.Ping(); err != nil {
+					r.logger.Errorf("failed to ping a player id=%s: %s", player.ID(), err)
+					r.LeavePlayer(player)
+				}
 			}
 			r.mu.RUnlock()
 		}
-	}
-}
-
-func (r *Room) pingPlayer(player *Player) {
-	if err := player.Ping(); err != nil {
-		r.logger.Errorf("failed to ping a player id=%s: %s", player.ID(), err)
-		r.LeavePlayer(player)
 	}
 }
 
@@ -233,7 +244,6 @@ func (r *Room) registerNewPlayer(newPlayer *Player) error {
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	if _, found := r.players[newPlayer.ID()]; found {
 		return ErrPlayerAlreadyInRoom
 	}
@@ -244,6 +254,7 @@ func (r *Room) registerNewPlayer(newPlayer *Player) error {
 	go func(wg *sync.WaitGroup, player *Player) {
 		defer wg.Done()
 		player.ReadMessages(r.ctx, r.messagesCh)
+		r.LeavePlayer(player)
 	}(&r.wg, newPlayer)
 
 	go func(wg *sync.WaitGroup, player *Player) {
@@ -264,6 +275,53 @@ func (r *Room) unregisterPlayer(player *Player) error {
 
 	player.Close()
 	delete(r.players, player.ID())
+
+	return nil
+}
+
+func (r *Room) onPlayerJoinedHandler(joinedPlayer *Player) error {
+	if err := r.registerNewPlayer(joinedPlayer); err != nil {
+		return fmt.Errorf("failed to register new player: %s", err)
+	}
+
+	event, err := events.NewPlayerJoinedEvent(joinedPlayer.Model)
+	if err != nil {
+		return err
+	}
+	r.Broadcast(event)
+
+	event, err = events.NewChatNotificationEvent(fmt.Sprintf("Player '%s' joined the room.", joinedPlayer.Nickname()))
+	if err != nil {
+		return err
+	}
+	r.Broadcast(event)
+
+	r.logger.Infof("player %s joined the room id=%s [players: %d]", joinedPlayer.String(), r.ID(), r.Capacity())
+
+	if r.IsFull() {
+		r.StartMatch()
+	}
+	return nil
+}
+
+func (r *Room) onPlayerLeavedHandler(leavedPlayer *Player) error {
+	if err := r.unregisterPlayer(leavedPlayer); err != nil {
+		return fmt.Errorf("failed to unregister player: %s", err)
+	}
+
+	event, err := events.NewPlayerLeavedEvent(leavedPlayer.Model)
+	if err != nil {
+		return err
+	}
+	r.Broadcast(event)
+
+	event, err = events.NewChatNotificationEvent(fmt.Sprintf("Player '%s' left the room.", leavedPlayer.Nickname()))
+	if err != nil {
+		return err
+	}
+	r.Broadcast(event)
+
+	r.logger.Infof("player %s left the room id=%s [players: %d]", leavedPlayer.String(), r.ID(), r.Capacity())
 
 	return nil
 }

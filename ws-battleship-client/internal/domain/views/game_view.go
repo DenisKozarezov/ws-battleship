@@ -122,6 +122,10 @@ func (v *GameView) GiveTurnToPlayer(board *BoardView) {
 	v.turnTimerView.Start()
 }
 
+func (v *GameView) AppendMessageInChat(msg ChatMessage) {
+	v.chatView.AppendMessage(msg)
+}
+
 func (v *GameView) renderPlayersBoards() string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, v.leftBoard.View(), v.renderGameTurn(), v.rightBoard.View())
 }
