@@ -127,7 +127,7 @@ func TestCloseRoom(t *testing.T) {
 		// 3. Assert
 		require.NoError(t, err)
 		require.Zerof(t, room.Capacity(), "there should be no players after close")
-		_, opened := <-room.readCh
+		_, opened := <-room.messagesCh
 		require.Falsef(t, opened, "readCh must be closed")
 	})
 
@@ -147,15 +147,16 @@ func TestCloseRoom(t *testing.T) {
 			KeepAlivePeriod: time.Second * 5,
 		}, loggerMock)
 
-		room.RegisterNewPlayer(NewPlayer(mockClient, domain.ClientMetadata{}))
+		err := room.registerNewPlayer(NewPlayer(mockClient, domain.ClientMetadata{}))
+		require.NoError(t, err)
 
 		// 2. Act
-		err := room.Close()
+		err = room.Close()
 
 		// 3. Assert
 		require.NoError(t, err)
 		require.Zerof(t, room.Capacity(), "there should be no players after close")
-		_, opened := <-room.readCh
+		_, opened := <-room.messagesCh
 		require.Falsef(t, opened, "readCh must be closed")
 	})
 }
@@ -169,19 +170,17 @@ func TestRegisterNewPlayer(t *testing.T) {
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient.On("WriteMessages", mock.Anything).Return()
 
-		loggerMock := new(logger.MockLogger)
-		loggerMock.On("Infof", mock.Anything, mock.Anything)
-
 		room := NewRoom(t.Context(), &config.AppConfig{
 			RoomCapacityMax: 5,
 			KeepAlivePeriod: time.Second * 5,
-		}, loggerMock)
+		}, nil)
 
 		// 2. Act
 		newPlayer := NewPlayer(mockClient, domain.ClientMetadata{})
-		room.RegisterNewPlayer(newPlayer)
+		err := room.registerNewPlayer(newPlayer)
 
 		// 3. Assert
+		require.NoError(t, err)
 		require.Equalf(t, 1, room.Capacity(), "there should be 1 player")
 		_, found := room.players[newPlayer.ID()]
 		require.Truef(t, found, "wrong player is added")
@@ -207,18 +206,15 @@ func TestRegisterNewPlayer(t *testing.T) {
 		mockClient3.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient3.On("WriteMessages", mock.Anything).Return()
 
-		loggerMock := new(logger.MockLogger)
-		loggerMock.On("Infof", mock.Anything, mock.Anything)
-
 		room := NewRoom(t.Context(), &config.AppConfig{
 			RoomCapacityMax: 5,
 			KeepAlivePeriod: time.Second * 5,
-		}, loggerMock)
+		}, nil)
 
 		// 2. Act
-		room.RegisterNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{}))
+		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{})))
+		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{})))
+		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{})))
 
 		// 3. Assert
 		require.Equalf(t, 3, room.Capacity(), "there should be 3 players")
@@ -244,25 +240,45 @@ func TestRegisterNewPlayer(t *testing.T) {
 		mockClient3.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient3.On("WriteMessages", mock.Anything).Return()
 
-		loggerMock := new(logger.MockLogger)
-		loggerMock.On("Infof", mock.Anything, mock.Anything)
+		room := NewRoom(t.Context(), &config.AppConfig{
+			RoomCapacityMax: 2,
+			KeepAlivePeriod: time.Second * 5,
+		}, nil)
+
+		// 2. Act
+		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{})))
+		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{})))
+		err := room.registerNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{}))
+
+		// 3. Assert
+		require.ErrorIsf(t, err, ErrRoomIsFull, "room must be full")
+		require.Equalf(t, 2, room.Capacity(), "there should be only 2 players")
+	})
+
+	t.Run("check we can't register the same player two or more times", func(t *testing.T) {
+		// 1. Arrange
+		mockClient := new(MockClient)
+		mockClient.On("Close").Return(nil)
+		mockClient.On("ID").Return("123")
+		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
+		mockClient.On("WriteMessages", mock.Anything).Return()
 
 		room := NewRoom(t.Context(), &config.AppConfig{
 			RoomCapacityMax: 2,
 			KeepAlivePeriod: time.Second * 5,
-		}, loggerMock)
+		}, nil)
 
-		// 2. Act
-		room.RegisterNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{}))
-		room.RegisterNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{}))
+		newPlayer := NewPlayer(mockClient, domain.ClientMetadata{})
 
-		// 3. Assert
-		require.Equalf(t, 2, room.Capacity(), "there should be only 2 players")
+		// 2. Act and Assert
+		require.NoError(t, room.registerNewPlayer(newPlayer))
+		require.ErrorIsf(t, room.registerNewPlayer(newPlayer), ErrPlayerAlreadyInRoom, "we shouldn't register the same player")
+		require.ErrorIsf(t, room.registerNewPlayer(newPlayer), ErrPlayerAlreadyInRoom, "we shouldn't register the same player")
+		require.Equalf(t, 1, room.Capacity(), "there should be only 1 player")
 	})
 }
 
-func TestUnregisterNewPlayer(t *testing.T) {
+func TestUnregisterPlayer(t *testing.T) {
 	t.Run("unregister 1 player", func(t *testing.T) {
 		// 1. Arrange
 		mockClient := new(MockClient)
@@ -271,22 +287,40 @@ func TestUnregisterNewPlayer(t *testing.T) {
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient.On("WriteMessages", mock.Anything).Return()
 
-		loggerMock := new(logger.MockLogger)
-		loggerMock.On("Infof", mock.Anything, mock.Anything)
+		player := NewPlayer(mockClient, domain.ClientMetadata{})
+		room := Room{
+			players: map[string]*Player{
+				"123": player,
+			},
+		}
+
+		// 2. Act
+		err := room.unregisterPlayer(player)
+
+		// 3. Assert
+		require.NoError(t, err)
+		require.Zerof(t, room.Capacity(), "there should be 0 players")
+	})
+
+	t.Run("check we can't unregister the same player two or more times", func(t *testing.T) {
+		// 1. Arrange
+		mockClient := new(MockClient)
+		mockClient.On("Close").Return(nil)
+		mockClient.On("ID").Return("123")
+		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
+		mockClient.On("WriteMessages", mock.Anything).Return()
 
 		player := NewPlayer(mockClient, domain.ClientMetadata{})
 		room := Room{
 			players: map[string]*Player{
 				"123": player,
 			},
-			logger: loggerMock,
 		}
 
-		// 2. Act
-		err := room.UnregisterPlayer(player)
-
-		// 3. Assert
-		require.NoError(t, err)
+		// 2. Act and Asssert
+		require.NoError(t, room.unregisterPlayer(player))
+		require.ErrorIsf(t, room.unregisterPlayer(player), ErrPlayerNotExist, "player shouldn't exist after first remove")
+		require.ErrorIsf(t, room.unregisterPlayer(player), ErrPlayerNotExist, "player shouldn't exist after first remove")
 		require.Zerof(t, room.Capacity(), "there should be 0 players")
 	})
 }

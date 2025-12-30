@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"sync"
 	"time"
 	"ws-battleship-client/internal/config"
@@ -26,14 +25,24 @@ type App struct {
 	client   Client
 	logger   logger.Logger
 	gameView *views.GameView
+	eventBus *EventBus
 }
 
 func NewApp(cfg *config.Config, logger logger.Logger) *App {
 	client := client.NewClient(&cfg.App, logger)
+	gameView := views.NewGameView(&cfg.Game)
+	processor := NewMatchProcessor(logger, gameView)
+
+	eventBus := NewEventBus()
+	eventBus.Subscribe(events.GameStartEventType, processor.OnGameStartHandler)
+	eventBus.Subscribe(events.PlayerJoinedEventType, processor.OnPlayerJoinedHandler)
+
 	return &App{
-		cfg:    cfg,
-		logger: logger,
-		client: client,
+		cfg:      cfg,
+		logger:   logger,
+		client:   client,
+		eventBus: eventBus,
+		gameView: gameView,
 	}
 }
 
@@ -86,28 +95,13 @@ func (a *App) handleConnection(ctx context.Context) {
 			return
 		case msg, opened := <-a.client.Messages():
 			if opened {
-				a.handleMessage(msg)
+				a.eventBus.Invoke(ctx, msg)
 			}
 		}
 	}
 }
 
-func (a *App) handleMessage(event events.Event) {
-	switch event.Type {
-	case events.GameStartEventType:
-		var gameStartEvent events.GameStartEvent
-		if err := json.Unmarshal(event.Data, &gameStartEvent); err != nil {
-			a.logger.Errorf("failed to unmarshal: %s", err)
-			return
-		}
-
-		a.gameView.StartGame(gameStartEvent.GameModel)
-	}
-}
-
 func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
-	a.gameView = views.NewGameView(&a.cfg.Game)
-
 	const fps = 60
 	const fixedTime = time.Second / fps
 

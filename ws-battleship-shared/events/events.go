@@ -46,3 +46,23 @@ func NewGameStartEvent(gameModel domain.GameModel) (Event, error) {
 		GameModel: gameModel,
 	})
 }
+
+type PlayerJoinedEvent struct {
+	Player *domain.PlayerModel `json:"joined_player"`
+}
+
+func NewPlayerJoinedEvent(joinedPlayer *domain.PlayerModel) (Event, error) {
+	return NewEvent(PlayerJoinedEventType, PlayerJoinedEvent{
+		Player: joinedPlayer,
+	})
+}
+
+type PlayerLeavedEvent struct {
+	Player *domain.PlayerModel `json:"leave_player"`
+}
+
+func NewPlayerLeavedEvent(leavePlayer *domain.PlayerModel) (Event, error) {
+	return NewEvent(PlayerJoinedEventType, PlayerLeavedEvent{
+		Player: leavePlayer,
+	})
+}
