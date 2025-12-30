@@ -6,6 +6,7 @@ import (
 	"time"
 	"ws-battleship-client/internal/config"
 	client "ws-battleship-client/internal/delivery/websocket"
+	clientEvents "ws-battleship-client/internal/domain/events"
 	"ws-battleship-client/internal/domain/views"
 	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
@@ -17,6 +18,7 @@ import (
 type Client interface {
 	Messages() <-chan events.Event
 	Connect(ctx context.Context, metadata domain.ClientMetadata) error
+	SendMessage(e events.Event) error
 	Shutdown() error
 }
 
@@ -26,26 +28,27 @@ type App struct {
 	logger   logger.Logger
 	gameView *views.GameView
 	eventBus *events.EventBus
+	metadata domain.ClientMetadata
 }
 
-func NewApp(cfg *config.Config, logger logger.Logger) *App {
-	client := client.NewClient(&cfg.App, logger)
-	gameView := views.NewGameView(&cfg.Game)
-	processor := NewMatchProcessor(logger, gameView)
-
+func NewApp(ctx context.Context, cfg *config.Config, logger logger.Logger) *App {
+	client := client.NewClient(ctx, &cfg.App, logger)
 	eventBus := events.NewEventBus()
-	eventBus.Subscribe(events.GameStartEventType, processor.OnGameStartHandler)
-	eventBus.Subscribe(events.PlayerJoinedEventType, processor.OnPlayerJoinedHandler)
-	eventBus.Subscribe(events.PlayerLeavedEventType, processor.OnPlayerLeavedHandler)
-	eventBus.Subscribe(events.SendMessageType, processor.OnSendMessageHandler)
 
-	return &App{
+	metadata := domain.ClientMetadata{Nickname: "Player 1"}
+
+	a := &App{
 		cfg:      cfg,
 		logger:   logger,
 		client:   client,
 		eventBus: eventBus,
-		gameView: gameView,
+		gameView: views.NewGameView(&cfg.Game, eventBus, metadata),
+		metadata: metadata,
 	}
+
+	eventBus.Subscribe(clientEvents.PlayerTypedMessageType, a.onPlayerTypedMessage)
+
+	return a
 }
 
 func (a *App) Run(ctx context.Context) {
@@ -75,8 +78,7 @@ func (a *App) startClient(ctx context.Context, wg *sync.WaitGroup) {
 	go func() {
 		defer wg.Done()
 
-		metadata := domain.ClientMetadata{Nickname: "Player 1"}
-		if err := a.client.Connect(ctx, metadata); err != nil {
+		if err := a.client.Connect(ctx, a.metadata); err != nil {
 			a.logger.Fatalf("failed to connect to server: %s", err)
 		}
 	}()
@@ -137,4 +139,9 @@ func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 		a.logger.Fatalf("failed to run a game view: %s", err)
 	}
 	clearTerminal()
+}
+
+func (a *App) onPlayerTypedMessage(_ context.Context, e events.Event) error {
+	e.Type = events.SendMessageType
+	return a.client.SendMessage(e)
 }

@@ -2,7 +2,6 @@ package views
 
 import (
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -32,9 +31,10 @@ var (
 )
 
 type ChatView struct {
-	content  []string
-	textarea textarea.Model
-	viewport viewport.Model
+	content             []string
+	textarea            textarea.Model
+	viewport            viewport.Model
+	messageTypedHandler func(msg string)
 }
 
 func NewChatView() *ChatView {
@@ -53,6 +53,7 @@ func NewChatView() *ChatView {
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
 	va := viewport.New(chatWidth, chatHeight)
+	va.KeyMap = viewport.KeyMap{}
 	va.SetContent("Welcome to the chat room!\nType a message and press Enter to send.")
 
 	return &ChatView{
@@ -79,13 +80,14 @@ func (v *ChatView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyEnter:
-			v.AppendMessage(ChatMessage{
-				Sender:    "You",
-				Message:   v.textarea.Value(),
-				Timestamp: time.Now().Format(time.TimeOnly),
-			})
+			if len(v.textarea.Value()) == 0 {
+				break
+			}
+
+			if v.messageTypedHandler != nil {
+				v.messageTypedHandler(v.textarea.Value())
+			}
 			v.textarea.Reset()
-			v.viewport.GotoBottom()
 		}
 	}
 
@@ -112,15 +114,19 @@ func (v *ChatView) AppendMessage(msg ChatMessage) {
 		builder.WriteString(senderStyle.Render(msg.Timestamp+" "+msg.Sender+": ") + msg.Message)
 	}
 
-	v.SetContent(append(v.content, builder.String()))
+	v.setContent(append(v.content, builder.String()))
 	v.viewport.GotoBottom()
 }
 
 func (v *ChatView) Clear() {
-	v.SetContent(nil)
+	v.setContent(nil)
 }
 
-func (v *ChatView) SetContent(content []string) {
+func (v *ChatView) SetMessageTypedHandler(fn func(string)) {
+	v.messageTypedHandler = fn
+}
+
+func (v *ChatView) setContent(content []string) {
 	v.content = content
 	v.viewport.SetContent(viewportStyle.Render(strings.Join(content, "\n")))
 }

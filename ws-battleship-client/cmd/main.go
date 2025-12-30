@@ -25,6 +25,6 @@ func main() {
 		panic(fmt.Sprintln("failed to create a logger", err))
 	}
 
-	app := application.NewApp(cfg, logger)
+	app := application.NewApp(ctx, cfg, logger)
 	app.Run(ctx)
 }

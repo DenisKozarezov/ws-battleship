@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"time"
 	"ws-battleship-client/internal/config"
 	"ws-battleship-shared/domain"
@@ -19,17 +20,30 @@ const (
 )
 
 type WebsocketClient struct {
-	cfg    *config.AppConfig
-	logger logger.Logger
-	conn   *websocket.Conn
-	readCh chan events.Event
+	once   sync.Once
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+
+	cfg     *config.AppConfig
+	logger  logger.Logger
+	conn    *websocket.Conn
+	readCh  chan events.Event
+	writeCh chan []byte
+	closeCh chan struct{}
 }
 
-func NewClient(cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
+func NewClient(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
+	ctx, cancel := context.WithCancel(ctx)
+
 	return &WebsocketClient{
-		cfg:    cfg,
-		logger: logger,
-		readCh: make(chan events.Event, events.ReadBufferBytesMax),
+		ctx:     ctx,
+		cancel:  cancel,
+		cfg:     cfg,
+		logger:  logger,
+		readCh:  make(chan events.Event, events.ReadBufferBytesMax),
+		writeCh: make(chan []byte, events.WriteBufferBytesMax),
+		closeCh: make(chan struct{}),
 	}
 }
 
@@ -56,20 +70,57 @@ func (c *WebsocketClient) Connect(ctx context.Context, metadata domain.ClientMet
 	})
 	c.conn = conn
 
-	go c.handleReadConnection(ctx, conn)
+	c.wg.Add(2)
+	go func(wg *sync.WaitGroup, conn *websocket.Conn) {
+		defer wg.Done()
+		c.handleReadMessages(c.ctx, conn)
+	}(&c.wg, conn)
+
+	go func(wg *sync.WaitGroup) {
+		defer wg.Done()
+		c.handleWriteMessages(c.ctx)
+	}(&c.wg)
 
 	return nil
 }
 
 func (c *WebsocketClient) Shutdown() error {
-	return c.conn.Close()
+	c.once.Do(func() {
+		c.cancel()
+		close(c.closeCh)
+		if err := c.conn.Close(); err != nil {
+			c.logger.Errorf("failed to close a websocket client: %s", err)
+		}
+	})
+	c.wg.Wait()
+	return nil
 }
 
 func (c *WebsocketClient) Messages() <-chan events.Event {
 	return c.readCh
 }
 
-func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websocket.Conn) {
+func (c *WebsocketClient) SendMessage(e events.Event) error {
+	payload, err := json.Marshal(e)
+	if err != nil {
+		return err
+	}
+
+	select {
+	case <-c.closeCh:
+		return nil
+	default:
+	}
+
+	select {
+	case <-c.closeCh:
+		return nil
+	case c.writeCh <- payload:
+	}
+	return nil
+}
+
+func (c *WebsocketClient) handleReadMessages(ctx context.Context, conn *websocket.Conn) {
 	defer close(c.readCh)
 
 	for {
@@ -113,6 +164,29 @@ func (c *WebsocketClient) handleReadConnection(ctx context.Context, conn *websoc
 			}
 
 			c.readCh <- event
+		}
+	}
+}
+
+func (c *WebsocketClient) handleWriteMessages(ctx context.Context) {
+	defer close(c.writeCh)
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-c.closeCh:
+			c.logger.Info("client received a closing signal, stopping writing messages...")
+			return
+		case msg := <-c.writeCh:
+			_ = c.conn.SetWriteDeadline(time.Now().Add(time.Second * 5))
+			if err := c.conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+				c.logger.Errorf("failed to send a message to client: %s", err)
+			}
 		}
 	}
 }

@@ -1,8 +1,14 @@
 package views
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 	"ws-battleship-client/internal/config"
+	clientEvents "ws-battleship-client/internal/domain/events"
 	"ws-battleship-shared/domain"
+	"ws-battleship-shared/events"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -25,24 +31,41 @@ type View interface {
 
 type GameView struct {
 	cfg            *config.GameConfig
-	chatView       *ChatView
 	leftBoard      *BoardView
 	rightBoard     *BoardView
 	turnTimerView  *TimerView
 	gameTickerView *TickerView
+	chatView       *ChatView
 
+	eventBus     *events.EventBus
 	currentBoard *BoardView
 }
 
-func NewGameView(cfg *config.GameConfig) *GameView {
-	return &GameView{
+func NewGameView(cfg *config.GameConfig, eventBus *events.EventBus, metadata domain.ClientMetadata) *GameView {
+	chatView := NewChatView()
+
+	v := &GameView{
 		cfg:            cfg,
+		eventBus:       eventBus,
 		leftBoard:      NewBoardView(),
 		rightBoard:     NewBoardView(),
-		chatView:       NewChatView(),
 		turnTimerView:  NewTimerView(),
 		gameTickerView: NewTickerView(),
+		chatView:       chatView,
 	}
+
+	eventBus.Subscribe(events.SendMessageType, v.onMessageReceivedHandler)
+	eventBus.Subscribe(events.GameStartEventType, v.onGameStartedHandler)
+	chatView.SetMessageTypedHandler(func(msg string) {
+		// ONLY FOR CLIENT USAGE! To avoid circual broadcasts we have to use other event type instead of
+		// server's [SendMessageType].
+		// That's why we need something only for internal usage, that won't be sended to server.
+		// Consider this as internal events.
+		event, _ := clientEvents.NewPlayerTypedMessageEvent(metadata.Nickname, msg)
+		eventBus.Invoke(context.Background(), event)
+	})
+
+	return v
 }
 
 func (v *GameView) Init() tea.Cmd {
@@ -122,10 +145,6 @@ func (v *GameView) GiveTurnToPlayer(board *BoardView) {
 	v.turnTimerView.Start()
 }
 
-func (v *GameView) AppendMessageInChat(msg ChatMessage) {
-	v.chatView.AppendMessage(msg)
-}
-
 func (v *GameView) renderPlayersBoards() string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, v.leftBoard.View(), v.renderGameTurn(), v.rightBoard.View())
 }
@@ -149,4 +168,34 @@ func (v *GameView) renderGameTurn() string {
 
 func (v *GameView) isLocalPlayerTurn() bool {
 	return v.currentBoard == v.leftBoard
+}
+
+func (v *GameView) onGameStartedHandler(_ context.Context, e events.Event) error {
+	var gameStartEvent events.GameStartEvent
+	if err := json.Unmarshal(e.Data, &gameStartEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	v.StartGame(gameStartEvent.GameModel)
+	return nil
+}
+
+func (v *GameView) onMessageReceivedHandler(ctx context.Context, e events.Event) error {
+	var sendMessageEvent events.SendMessageEvent
+	if err := json.Unmarshal(e.Data, &sendMessageEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	timestamp, err := time.Parse(events.TimestampFormat, e.Timestamp)
+	if err != nil {
+		return fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+
+	v.chatView.AppendMessage(ChatMessage{
+		Sender:         sendMessageEvent.Sender,
+		Message:        sendMessageEvent.Message,
+		IsNotification: sendMessageEvent.IsNotification,
+		Timestamp:      timestamp.Format(time.TimeOnly),
+	})
+	return nil
 }

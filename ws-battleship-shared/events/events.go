@@ -16,10 +16,10 @@ const (
 const TimestampFormat = time.RFC3339
 
 const (
-	PlayerJoinedEventType = "join"
-	PlayerLeavedEventType = "leave"
-	GameStartEventType    = "game_start"
-	SendMessageType       = "send_message"
+	PlayerJoinedEventType EventType = "join"
+	PlayerLeavedEventType EventType = "leave"
+	GameStartEventType    EventType = "game_start"
+	SendMessageType       EventType = "send_message"
 )
 
 type Event struct {

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -170,6 +171,8 @@ func (r *Room) StartMatch() {
 
 	event, _ := events.NewGameStartEvent(gameModel)
 	r.Broadcast(event)
+
+	r.sendChatNotification("Game started!")
 }
 
 func (r *Room) handleConnections(ctx context.Context) {
@@ -190,6 +193,10 @@ func (r *Room) handleConnections(ctx context.Context) {
 				return
 			}
 			r.onPlayerJoinedHandler(joinedPlayer)
+
+			if r.IsFull() {
+				r.StartMatch()
+			}
 
 		case leavedPlayer, opened := <-r.leaveCh:
 			if !opened {
@@ -279,6 +286,25 @@ func (r *Room) unregisterPlayer(player *Player) error {
 	return nil
 }
 
+func (r *Room) sendChatNotification(msg string) {
+	event, err := events.NewChatNotificationEvent(msg)
+	if err != nil {
+		r.logger.Errorf("couldn't send a chat notification: %s", err)
+		return
+	}
+	r.Broadcast(event)
+}
+
+func (r *Room) handleEvent(e events.Event) {
+	switch e.Type {
+	case events.SendMessageType:
+		if err := r.onPlayerSentMessageHandler(e); err != nil {
+			r.logger.Errorf("failed to send message to others players: %s", err)
+			return
+		}
+	}
+}
+
 func (r *Room) onPlayerJoinedHandler(joinedPlayer *Player) error {
 	if err := r.registerNewPlayer(joinedPlayer); err != nil {
 		return fmt.Errorf("failed to register new player: %s", err)
@@ -290,17 +316,8 @@ func (r *Room) onPlayerJoinedHandler(joinedPlayer *Player) error {
 	}
 	r.Broadcast(event)
 
-	event, err = events.NewChatNotificationEvent(fmt.Sprintf("Player '%s' joined the room.", joinedPlayer.Nickname()))
-	if err != nil {
-		return err
-	}
-	r.Broadcast(event)
-
+	r.sendChatNotification(fmt.Sprintf("Player '%s' joined the room.", joinedPlayer.Nickname()))
 	r.logger.Infof("player %s joined the room id=%s [players: %d]", joinedPlayer.String(), r.ID(), r.Capacity())
-
-	if r.IsFull() {
-		r.StartMatch()
-	}
 	return nil
 }
 
@@ -315,18 +332,24 @@ func (r *Room) onPlayerLeavedHandler(leavedPlayer *Player) error {
 	}
 	r.Broadcast(event)
 
-	event, err = events.NewChatNotificationEvent(fmt.Sprintf("Player '%s' left the room.", leavedPlayer.Nickname()))
-	if err != nil {
-		return err
-	}
-	r.Broadcast(event)
-
+	r.sendChatNotification(fmt.Sprintf("Player '%s' left the room.", leavedPlayer.Nickname()))
 	r.logger.Infof("player %s left the room id=%s [players: %d]", leavedPlayer.String(), r.ID(), r.Capacity())
 
 	return nil
 }
 
-func (r *Room) handleEvent(e events.Event) {
-	r.logger.Debug("[room: %s] type: %d; timestamp: %s", r.ID(), e.Type, e.Timestamp)
+func (r *Room) onPlayerSentMessageHandler(event events.Event) error {
+	var playerSentMesssageEvent events.SendMessageEvent
+	if err := json.Unmarshal(event.Data, &playerSentMesssageEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event: %w", err)
+	}
 
+	event, err := events.NewSendMessageEvent(playerSentMesssageEvent.Sender, playerSentMesssageEvent.Message)
+	if err != nil {
+		return err
+	}
+	r.Broadcast(event)
+
+	r.logger.Infof("player '%s' sent a message", playerSentMesssageEvent.Sender)
+	return nil
 }

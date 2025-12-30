@@ -182,8 +182,9 @@ func TestRegisterNewPlayer(t *testing.T) {
 		// 3. Assert
 		require.NoError(t, err)
 		require.Equalf(t, 1, room.Capacity(), "there should be 1 player")
-		_, found := room.players[newPlayer.ID()]
-		require.Truef(t, found, "wrong player is added")
+		for id := range room.players {
+			require.Equalf(t, newPlayer.ID(), id, "expected player '%s', but got wrong player '%s'", newPlayer.ID(), id)
+		}
 	})
 
 	t.Run("register some new players", func(t *testing.T) {
