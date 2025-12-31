@@ -127,8 +127,6 @@ func TestCloseRoom(t *testing.T) {
 		// 3. Assert
 		require.NoError(t, err)
 		require.Zerof(t, room.Capacity(), "there should be no players after close")
-		_, opened := <-room.messagesCh
-		require.Falsef(t, opened, "readCh must be closed")
 	})
 
 	t.Run("close a room with some players", func(t *testing.T) {
@@ -156,8 +154,6 @@ func TestCloseRoom(t *testing.T) {
 		// 3. Assert
 		require.NoError(t, err)
 		require.Zerof(t, room.Capacity(), "there should be no players after close")
-		_, opened := <-room.messagesCh
-		require.Falsef(t, opened, "readCh must be closed")
 	})
 }
 

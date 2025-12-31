@@ -106,15 +106,15 @@ type ChatMessage struct {
 }
 
 func (v *ChatView) AppendMessage(msg ChatMessage) {
-	var builder strings.Builder
+	var newMessage string
 
 	if msg.IsNotification {
-		builder.WriteString(lipgloss.PlaceHorizontal(chatWidth, lipgloss.Center, notificationStyle.Render(" "+msg.Timestamp+" "+msg.Message+" ")))
+		newMessage = lipgloss.PlaceHorizontal(chatWidth, lipgloss.Center, notificationStyle.Render(" "+msg.Timestamp+" "+msg.Message+" "))
 	} else {
-		builder.WriteString(senderStyle.Render(msg.Timestamp+" "+msg.Sender+": ") + msg.Message)
+		newMessage = senderStyle.Render(msg.Timestamp+" "+msg.Sender+": ") + msg.Message
 	}
 
-	v.setContent(append(v.content, builder.String()))
+	v.setContent(append(v.content, newMessage))
 	v.viewport.GotoBottom()
 }
 
@@ -128,5 +128,11 @@ func (v *ChatView) SetMessageTypedHandler(fn func(string)) {
 
 func (v *ChatView) setContent(content []string) {
 	v.content = content
+
+	if len(content) == 0 {
+		v.viewport.SetContent("")
+		return
+	}
+
 	v.viewport.SetContent(viewportStyle.Render(strings.Join(content, "\n")))
 }

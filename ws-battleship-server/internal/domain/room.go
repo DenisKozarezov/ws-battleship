@@ -81,15 +81,12 @@ func (c *Room) Compare(rhs *Room) int {
 }
 
 func (r *Room) Close() error {
-	r.logger.Infof("room id=%s [players: %d] is closing...", r.ID(), r.Capacity())
-
 	r.once.Do(func() {
 		r.cancel()
 		close(r.closeCh)
-		close(r.messagesCh)
-		close(r.joinCh)
-		close(r.leaveCh)
 	})
+
+	r.logger.Infof("room id=%s [players: %d] is closing...", r.ID(), r.Capacity())
 
 	for _, player := range r.players {
 		if err := r.unregisterPlayer(player); err != nil {
@@ -109,18 +106,9 @@ func (r *Room) IsFull() bool {
 }
 
 func (r *Room) JoinNewPlayer(newPlayer *Player) error {
-	if r.IsFull() {
-		return ErrRoomIsFull
-	}
-
 	select {
 	case <-r.closeCh:
-		return nil
-	default:
-	}
-
-	select {
-	case <-r.closeCh:
+		return ErrRoomIsClosed
 	case r.joinCh <- newPlayer:
 	default:
 	}
@@ -128,12 +116,6 @@ func (r *Room) JoinNewPlayer(newPlayer *Player) error {
 }
 
 func (r *Room) LeavePlayer(player *Player) {
-	select {
-	case <-r.closeCh:
-		return
-	default:
-	}
-
 	select {
 	case <-r.closeCh:
 	case r.leaveCh <- player:
@@ -160,9 +142,11 @@ func (r *Room) Capacity() (capacity int) {
 }
 
 func (r *Room) StartMatch() {
-	r.logger.Infof("room id=%s is starting a match [players: %d]", r.ID(), r.Capacity())
+	capacity := r.Capacity()
 
-	playerModels := make(map[string]*domain.PlayerModel, len(r.players))
+	r.logger.Infof("room id=%s is starting a match [players: %d]", r.ID(), capacity)
+
+	playerModels := make(map[string]*domain.PlayerModel, capacity)
 	for _, player := range r.players {
 		playerModels[player.ID()] = player.Model
 	}
@@ -261,7 +245,6 @@ func (r *Room) registerNewPlayer(newPlayer *Player) error {
 	go func(wg *sync.WaitGroup, player *Player) {
 		defer wg.Done()
 		player.ReadMessages(r.ctx, r.messagesCh)
-		r.LeavePlayer(player)
 	}(&r.wg, newPlayer)
 
 	go func(wg *sync.WaitGroup, player *Player) {
