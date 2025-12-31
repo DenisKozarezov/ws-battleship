@@ -13,20 +13,9 @@ var (
 			Foreground(lipgloss.Color("#FFFFFF")).
 			Background(lipgloss.Color("#514A85"))
 
-	focusedStyle = lipgloss.NewStyle().Bold(true).
-			Align(lipgloss.Center).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.Color("#7068BA"))
-
-	clickedStyle = lipgloss.NewStyle().Bold(true).
-			Align(lipgloss.Center).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.Color("#655AF2"))
-
-	disabledStyle = lipgloss.NewStyle().Bold(true).
-			Align(lipgloss.Center).
-			Foreground(lipgloss.Color("#FFFFFF")).
-			Background(lipgloss.Color("#55555E"))
+	focusedStyle  = defaultStyle.Background(lipgloss.Color("#7068BA"))
+	clickedStyle  = defaultStyle.Background(lipgloss.Color("#655AF2"))
+	disabledStyle = defaultStyle.Background(lipgloss.Color("#55555E"))
 )
 
 const (
@@ -69,13 +58,14 @@ func NewButtonView(text string, opts ...ButtonOption) *ButtonView {
 }
 
 func (v *ButtonView) Init() tea.Cmd {
+	v.SetFocus(false)
+	v.SetEnabled(true)
+	v.Reset()
+
 	for _, opt := range v.opts {
 		opt(v)
 	}
 
-	v.SetFocus(false)
-	v.SetEnabled(true)
-	v.Reset()
 	return nil
 }
 

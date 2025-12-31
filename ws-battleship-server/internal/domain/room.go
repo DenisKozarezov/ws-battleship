@@ -84,11 +84,10 @@ func (r *Room) Close() error {
 	r.once.Do(func() {
 		r.cancel()
 		close(r.closeCh)
+		r.logger.Infof("room id=%s [players: %d] is closing...", r.ID(), r.Capacity())
 	})
 
-	r.logger.Infof("room id=%s [players: %d] is closing...", r.ID(), r.Capacity())
-
-	for _, player := range r.players {
+	for _, player := range r.GetPlayers() {
 		if err := r.unregisterPlayer(player); err != nil {
 			return err
 		}
@@ -124,10 +123,7 @@ func (r *Room) LeavePlayer(player *Player) {
 }
 
 func (r *Room) Broadcast(e events.Event) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	for _, player := range r.players {
+	for _, player := range r.GetPlayers() {
 		if err := player.SendMessage(e); err != nil {
 			r.logger.Errorf("failed to send a broadcast message to player id=%s", player.ID())
 		}
@@ -141,13 +137,23 @@ func (r *Room) Capacity() (capacity int) {
 	return
 }
 
-func (r *Room) StartMatch() {
-	capacity := r.Capacity()
-
-	r.logger.Infof("room id=%s is starting a match [players: %d]", r.ID(), capacity)
-
-	playerModels := make(map[string]*domain.PlayerModel, capacity)
+func (r *Room) GetPlayers() []*Player {
+	r.mu.RLock()
+	players := make([]*Player, 0, len(r.players))
 	for _, player := range r.players {
+		players = append(players, player)
+	}
+	r.mu.RUnlock()
+	return players
+}
+
+func (r *Room) StartMatch() {
+	players := r.GetPlayers()
+
+	r.logger.Infof("room id=%s is starting a match [players: %d]", r.ID(), len(players))
+
+	playerModels := make(map[string]*domain.PlayerModel, len(players))
+	for _, player := range players {
 		playerModels[player.ID()] = player.Model
 	}
 
@@ -216,14 +222,12 @@ func (r *Room) pingPlayers(ctx context.Context) {
 		// are still alive. If no, then the server unregisters potentially dead clients. There are literally
 		// zero reasons to keep stalled connections alive, so the server deallocates them for other needs.
 		case <-pingTicker.C:
-			r.mu.RLock()
-			for _, player := range r.players {
+			for _, player := range r.GetPlayers() {
 				if err := player.Ping(); err != nil {
 					r.logger.Errorf("failed to ping a player id=%s: %s", player.ID(), err)
 					r.LeavePlayer(player)
 				}
 			}
-			r.mu.RUnlock()
 		}
 	}
 }
