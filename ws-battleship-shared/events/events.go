@@ -2,6 +2,7 @@ package events
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 	"ws-battleship-shared/domain"
 )
@@ -28,6 +29,13 @@ type Event struct {
 	Type      EventType       `json:"type"`
 	Timestamp string          `json:"timestamp"`
 	Data      json.RawMessage `json:"data,omitempty"`
+}
+
+func CastTo[T any](e Event) (result T, err error) {
+	if err = json.Unmarshal(e.Data, &result); err != nil {
+		return result, fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+	return
 }
 
 func NewEvent(eventType EventType, data any) (Event, error) {
@@ -106,7 +114,7 @@ func NewChatNotificationEvent(message string) (Event, error) {
 }
 
 type PlayerUpdateStateEvent struct {
-	GameModel *domain.GameModel
+	GameModel *domain.GameModel `json:"game_model"`
 }
 
 func NewPlayerUpdateStateEvent(gameModel *domain.GameModel) (Event, error) {

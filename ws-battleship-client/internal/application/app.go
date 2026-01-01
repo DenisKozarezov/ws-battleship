@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -152,19 +151,14 @@ func (a *App) onPlayerTypedMessage(e events.Event) error {
 }
 
 func (a *App) onGameStartedHandler(e events.Event) error {
-	var gameStartEvent events.GameStartEvent
-	if err := json.Unmarshal(e.Data, &gameStartEvent); err != nil {
-		return fmt.Errorf("failed to unmarshal event payload: %w", err)
-	}
-
 	a.gameView.StartGame()
 	return nil
 }
 
 func (a *App) onPlayerUpdateState(e events.Event) error {
-	var playerUpdateEvent events.PlayerUpdateStateEvent
-	if err := json.Unmarshal(e.Data, &playerUpdateEvent); err != nil {
-		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	playerUpdateEvent, err := events.CastTo[events.PlayerUpdateStateEvent](e)
+	if err != nil {
+		return err
 	}
 
 	a.gameView.SetGameModel(playerUpdateEvent.GameModel)
@@ -172,9 +166,9 @@ func (a *App) onPlayerUpdateState(e events.Event) error {
 }
 
 func (a *App) onPlayerTurnHandler(e events.Event) error {
-	var playerTurnEvent events.PlayerTurnEvent
-	if err := json.Unmarshal(e.Data, &playerTurnEvent); err != nil {
-		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	playerTurnEvent, err := events.CastTo[events.PlayerTurnEvent](e)
+	if err != nil {
+		return err
 	}
 
 	isLocalPlayer := a.metadata.ClientID == playerTurnEvent.Player.ID
@@ -183,9 +177,9 @@ func (a *App) onPlayerTurnHandler(e events.Event) error {
 }
 
 func (a *App) onPlayerSendMessage(e events.Event) error {
-	var sendMessageEvent events.SendMessageEvent
-	if err := json.Unmarshal(e.Data, &sendMessageEvent); err != nil {
-		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	sendMessageEvent, err := events.CastTo[events.SendMessageEvent](e)
+	if err != nil {
+		return err
 	}
 
 	timestamp, err := time.Parse(events.TimestampFormat, e.Timestamp)

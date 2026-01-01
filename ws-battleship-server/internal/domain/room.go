@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -315,16 +314,6 @@ func (r *Room) onPlayerLeftHandler(leftPlayer *Player) error {
 	return nil
 }
 
-func (r *Room) onPlayerSentMessageHandler(event events.Event) error {
-	var playerSentMesssageEvent events.SendMessageEvent
-	if err := json.Unmarshal(event.Data, &playerSentMesssageEvent); err != nil {
-		return fmt.Errorf("failed to unmarshal event: %w", err)
-	}
-
-	event, err := events.NewSendMessageEvent(playerSentMesssageEvent.Sender, playerSentMesssageEvent.Message)
-	if err != nil {
-		return err
-	}
-
-	return r.Broadcast(event)
+func (r *Room) onPlayerSentMessageHandler(e events.Event) error {
+	return r.Broadcast(e)
 }

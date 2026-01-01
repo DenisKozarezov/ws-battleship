@@ -13,6 +13,11 @@ import (
 )
 
 type Match struct {
+	ctx     context.Context
+	closeCh chan struct{}
+	wg      sync.WaitGroup
+	once    sync.Once
+
 	room   *Room
 	cfg    *config.Config
 	logger logger.Logger
@@ -21,17 +26,15 @@ type Match struct {
 	isClosed      bool
 	turningPlayer *domain.PlayerModel
 	gameModel     domain.GameModel
-
-	ctx context.Context
-	wg  sync.WaitGroup
 }
 
 func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Match {
 	match := &Match{
-		room:   NewRoom(ctx, &cfg.App, logger),
-		cfg:    cfg,
-		logger: logger,
-		ctx:    ctx,
+		ctx:     ctx,
+		closeCh: make(chan struct{}),
+		room:    NewRoom(ctx, &cfg.App, logger),
+		cfg:     cfg,
+		logger:  logger,
 	}
 
 	match.room.SetPlayerJoinedHandler(match.onPlayerJoinedHandler)
@@ -57,8 +60,12 @@ func (m *Match) Compare(rhs *Match) int {
 }
 
 func (m *Match) Close() error {
-	m.isClosed = true
-	m.logger.Infof("match id=%s is closing...", m.ID())
+	m.once.Do(func() {
+		m.isClosed = true
+		close(m.closeCh)
+		m.logger.Infof("match id=%s is closing...", m.ID())
+	})
+
 	if err := m.room.Close(); err != nil {
 		return err
 	}
@@ -171,6 +178,10 @@ func (m *Match) gameLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
+
+		case <-m.closeCh:
+			return
+
 		case <-gameTurnTimer.C:
 			if err := m.GiveTurnToNextPlayer(); err != nil {
 				m.logger.Errorf("failed to give a turn to the next player: %s", err)
