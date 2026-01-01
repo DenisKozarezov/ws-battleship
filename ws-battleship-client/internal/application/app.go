@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
 	"ws-battleship-client/internal/config"
@@ -28,25 +30,27 @@ type App struct {
 	client   Client
 	logger   logger.Logger
 	gameView *views.GameView
-	eventBus *events.EventBus
 	metadata domain.ClientMetadata
+	eventBus *events.EventBus
 }
 
 func NewApp(ctx context.Context, cfg *config.Config, logger logger.Logger) *App {
-	client := client.NewClient(ctx, &cfg.App, logger)
+	metadata := domain.NewClientMetadata(uuid.New().Domain().String())
 	eventBus := events.NewEventBus()
-
-	metadata := domain.ClientMetadata{Nickname: uuid.New().Domain().String()}
 
 	a := &App{
 		cfg:      cfg,
+		client:   client.NewClient(ctx, &cfg.App, logger),
 		logger:   logger,
-		client:   client,
-		eventBus: eventBus,
 		gameView: views.NewGameView(eventBus, metadata),
 		metadata: metadata,
+		eventBus: eventBus,
 	}
 
+	eventBus.Subscribe(events.GameStartEventType, a.onGameStartedHandler)
+	eventBus.Subscribe(events.PlayerUpdateStateEventType, a.onPlayerUpdateState)
+	eventBus.Subscribe(events.PlayerTurnEventType, a.onPlayerTurnHandler)
+	eventBus.Subscribe(events.SendMessageType, a.onPlayerSendMessage)
 	eventBus.Subscribe(clientEvents.PlayerTypedMessageType, a.onPlayerTypedMessage)
 
 	return a
@@ -145,4 +149,54 @@ func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 func (a *App) onPlayerTypedMessage(e events.Event) error {
 	e.Type = events.SendMessageType
 	return a.client.SendMessage(e)
+}
+
+func (a *App) onGameStartedHandler(e events.Event) error {
+	var gameStartEvent events.GameStartEvent
+	if err := json.Unmarshal(e.Data, &gameStartEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	a.gameView.StartGame()
+	return nil
+}
+
+func (a *App) onPlayerUpdateState(e events.Event) error {
+	var playerUpdateEvent events.PlayerUpdateStateEvent
+	if err := json.Unmarshal(e.Data, &playerUpdateEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	a.gameView.SetGameModel(playerUpdateEvent.GameModel)
+	return nil
+}
+
+func (a *App) onPlayerTurnHandler(e events.Event) error {
+	var playerTurnEvent events.PlayerTurnEvent
+	if err := json.Unmarshal(e.Data, &playerTurnEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	isLocalPlayer := a.metadata.ClientID == playerTurnEvent.Player.ID
+
+	return a.gameView.GiveTurnToPlayer(playerTurnEvent.Player, playerTurnEvent.RemainingTime, isLocalPlayer)
+}
+
+func (a *App) onPlayerSendMessage(e events.Event) error {
+	var sendMessageEvent events.SendMessageEvent
+	if err := json.Unmarshal(e.Data, &sendMessageEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	timestamp, err := time.Parse(events.TimestampFormat, e.Timestamp)
+	if err != nil {
+		return fmt.Errorf("failed to parse timestamp: %w", err)
+	}
+
+	return a.gameView.AppendMessageInChat(views.ChatMessage{
+		Sender:         sendMessageEvent.Sender,
+		Message:        sendMessageEvent.Message,
+		IsNotification: sendMessageEvent.IsNotification,
+		Timestamp:      timestamp.Format(time.TimeOnly),
+	})
 }

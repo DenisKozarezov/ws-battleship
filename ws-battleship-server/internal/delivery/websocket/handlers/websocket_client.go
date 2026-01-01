@@ -6,11 +6,10 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"ws-battleship-server/internal/domain"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -25,14 +24,13 @@ type WebsocketClient struct {
 	clientID domain.ClientID
 }
 
-func NewWebsocketClient(conn *websocket.Conn, logger logger.Logger) *WebsocketClient {
+func NewWebsocketClient(conn *websocket.Conn, logger logger.Logger, metadata domain.ClientMetadata) *WebsocketClient {
 	return &WebsocketClient{
-		conn:    conn,
-		logger:  logger,
-		closeCh: make(chan struct{}),
-		writeCh: make(chan []byte, events.WriteBufferBytesMax),
-
-		clientID: uuid.New().String(),
+		conn:     conn,
+		logger:   logger,
+		closeCh:  make(chan struct{}),
+		writeCh:  make(chan []byte, events.WriteBufferBytesMax),
+		clientID: metadata.ClientID,
 	}
 }
 

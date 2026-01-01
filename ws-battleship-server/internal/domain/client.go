@@ -2,13 +2,12 @@ package domain
 
 import (
 	"context"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 )
 
-type ClientID = string
-
 type Client interface {
-	ID() ClientID
+	ID() domain.ClientID
 	Ping() error
 	Close()
 	SendMessage(e events.Event) error

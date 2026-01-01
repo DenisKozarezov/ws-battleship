@@ -6,6 +6,7 @@ package domain
 
 import (
 	"context"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 
 	mock "github.com/stretchr/testify/mock"
@@ -72,18 +73,18 @@ func (_c *MockClient_Close_Call) RunAndReturn(run func()) *MockClient_Close_Call
 }
 
 // ID provides a mock function for the type MockClient
-func (_mock *MockClient) ID() ClientID {
+func (_mock *MockClient) ID() domain.ClientID {
 	ret := _mock.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for ID")
 	}
 
-	var r0 ClientID
-	if returnFunc, ok := ret.Get(0).(func() ClientID); ok {
+	var r0 domain.ClientID
+	if returnFunc, ok := ret.Get(0).(func() domain.ClientID); ok {
 		r0 = returnFunc()
 	} else {
-		r0 = ret.Get(0).(ClientID)
+		r0 = ret.Get(0).(domain.ClientID)
 	}
 	return r0
 }
@@ -105,12 +106,12 @@ func (_c *MockClient_ID_Call) Run(run func()) *MockClient_ID_Call {
 	return _c
 }
 
-func (_c *MockClient_ID_Call) Return(v ClientID) *MockClient_ID_Call {
+func (_c *MockClient_ID_Call) Return(v domain.ClientID) *MockClient_ID_Call {
 	_c.Call.Return(v)
 	return _c
 }
 
-func (_c *MockClient_ID_Call) RunAndReturn(run func() ClientID) *MockClient_ID_Call {
+func (_c *MockClient_ID_Call) RunAndReturn(run func() domain.ClientID) *MockClient_ID_Call {
 	_c.Call.Return(run)
 	return _c
 }
