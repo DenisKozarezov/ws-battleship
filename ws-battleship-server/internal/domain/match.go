@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"strings"
 	"sync"
 	"time"
 	"ws-battleship-server/internal/config"
@@ -47,14 +46,14 @@ func (m *Match) Equal(rhs *Match) bool {
 	if rhs == nil {
 		return false
 	}
-	return m.ID() == rhs.ID()
+	return m.room.Equal(rhs.room)
 }
 
 func (m *Match) Compare(rhs *Match) int {
 	if rhs == nil {
 		return -1
 	}
-	return strings.Compare(m.ID(), rhs.ID())
+	return m.room.Compare(rhs.room)
 }
 
 func (m *Match) Close() error {
@@ -74,6 +73,22 @@ func (m *Match) JoinNewPlayer(newPlayer *Player) error {
 		return err
 	}
 	return m.room.JoinNewPlayer(newPlayer)
+}
+
+func (m *Match) CheckIsAvailableForJoin() error {
+	switch {
+	case m.isClosed:
+		return ErrRoomIsClosed
+	case m.isStarted:
+		return ErrAlreadyStarted
+	case m.room.IsFull():
+		return ErrRoomIsFull
+	}
+	return nil
+}
+
+func (m *Match) IsReadyToStart() bool {
+	return !m.isClosed && !m.isStarted && m.room.IsFull()
 }
 
 func (m *Match) StartMatch() error {
@@ -97,22 +112,6 @@ func (m *Match) StartMatch() error {
 		m.gameLoop(m.ctx)
 	}()
 	return nil
-}
-
-func (m *Match) CheckIsAvailableForJoin() error {
-	switch {
-	case m.isClosed:
-		return ErrRoomIsClosed
-	case m.isStarted:
-		return ErrAlreadyStarted
-	case m.room.IsFull():
-		return ErrRoomIsFull
-	}
-	return nil
-}
-
-func (m *Match) IsReadyToStart() bool {
-	return !m.isClosed && !m.isStarted && m.room.IsFull()
 }
 
 func (m *Match) GiveTurnToNextPlayer() error {
@@ -148,8 +147,12 @@ func (m *Match) GiveTurnToPlayer(turningPlayer *domain.PlayerModel) error {
 }
 
 func (m *Match) getRandomPlayer() *domain.PlayerModel {
-	randIdx := rand.Intn(m.room.Capacity())
-	return m.room.GetPlayers()[randIdx].Model
+	capacity := m.room.Capacity()
+	if capacity == 0 {
+		return nil
+	}
+
+	return m.room.GetPlayers()[rand.Intn(capacity)].Model
 }
 
 func (m *Match) gameLoop(ctx context.Context) {
