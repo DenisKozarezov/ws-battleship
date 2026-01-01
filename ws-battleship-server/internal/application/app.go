@@ -25,7 +25,6 @@ type App struct {
 
 func NewApp(cfg *config.Config, logger logger.Logger) *App {
 	joinCh := make(chan *domain.Player, cfg.App.ClientsConnectionsMax)
-
 	return &App{
 		cfg:        cfg,
 		logger:     logger,
@@ -129,7 +128,7 @@ func (r *App) findFreeMatch() *domain.Match {
 	}
 
 	for _, match := range r.matches {
-		if match.CheckIsAvailable() == nil {
+		if match.CheckIsAvailableForJoin() == nil {
 			return match
 		}
 	}

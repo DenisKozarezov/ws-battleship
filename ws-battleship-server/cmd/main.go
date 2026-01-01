@@ -27,7 +27,5 @@ func main() {
 	}
 
 	app := application.NewApp(cfg, logger)
-
-	router := routers.NewDefaultRouter(logger)
-	app.Run(ctx, router)
+	app.Run(ctx, routers.NewDefaultRouter(logger))
 }

@@ -28,16 +28,15 @@ type Match struct {
 }
 
 func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Match {
-	m := &Match{
+	match := &Match{
 		room:   NewRoom(ctx, &cfg.App, logger),
 		cfg:    cfg,
 		logger: logger,
 		ctx:    ctx,
 	}
 
-	m.room.SetPlayerJoinedHandler(m.onPlayerJoined)
-
-	return m
+	match.room.SetPlayerJoinedHandler(match.onPlayerJoinedHandler)
+	return match
 }
 
 func (m *Match) ID() string {
@@ -71,6 +70,9 @@ func (m *Match) Close() error {
 }
 
 func (m *Match) JoinNewPlayer(newPlayer *Player) error {
+	if err := m.CheckIsAvailableForJoin(); err != nil {
+		return err
+	}
 	return m.room.JoinNewPlayer(newPlayer)
 }
 
@@ -92,24 +94,20 @@ func (m *Match) StartMatch() error {
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		m.gameLoop()
+		m.gameLoop(m.ctx)
 	}()
 	return nil
 }
 
-func (m *Match) CheckIsAvailable() error {
-	if m.isClosed {
+func (m *Match) CheckIsAvailableForJoin() error {
+	switch {
+	case m.isClosed:
 		return ErrRoomIsClosed
-	}
-
-	if m.isStarted {
+	case m.isStarted:
 		return ErrAlreadyStarted
-	}
-
-	if m.room.IsFull() {
+	case m.room.IsFull():
 		return ErrRoomIsFull
 	}
-
 	return nil
 }
 
@@ -154,22 +152,25 @@ func (m *Match) getRandomPlayer() *domain.PlayerModel {
 	return m.room.GetPlayers()[randIdx].Model
 }
 
-func (m *Match) gameLoop() {
-	gameTurnTimer := time.NewTimer(m.cfg.Game.GameTurnTime)
-	defer gameTurnTimer.Stop()
-
+func (m *Match) gameLoop(ctx context.Context) {
 	if err := m.GiveTurnToRandomPlayer(); err != nil {
-		m.logger.Errorf("failed to get the first turn to a random player: %s", err)
+		m.logger.Errorf("failed to give the first turn to a random player: %s", err)
 		return
 	}
 
+	gameTurnTimer := time.NewTimer(m.cfg.Game.GameTurnTime)
+	defer gameTurnTimer.Stop()
 	for {
+		if err := ctx.Err(); err != nil {
+			return
+		}
+
 		select {
-		case <-m.ctx.Done():
+		case <-ctx.Done():
 			return
 		case <-gameTurnTimer.C:
 			if err := m.GiveTurnToNextPlayer(); err != nil {
-				m.logger.Errorf("failed to get turn to the next player: %s", err)
+				m.logger.Errorf("failed to give a turn to the next player: %s", err)
 			}
 			gameTurnTimer.Reset(m.cfg.Game.GameTurnTime)
 		}
@@ -184,14 +185,16 @@ func (m *Match) allPlayersUpdate() error {
 	return m.room.Broadcast(event)
 }
 
-func (m *Match) onPlayerJoined(joinedPlayer *Player) {
+func (m *Match) onPlayerJoinedHandler(joinedPlayer *Player) {
 	if m.gameModel.LeftPlayer == nil {
 		m.gameModel.LeftPlayer = joinedPlayer.Model
 	} else {
 		m.gameModel.RightPlayer = joinedPlayer.Model
 	}
 
-	m.allPlayersUpdate()
+	if err := m.allPlayersUpdate(); err != nil {
+		m.logger.Errorf("failed to update players: %s", err)
+	}
 
 	if !m.IsReadyToStart() {
 		return

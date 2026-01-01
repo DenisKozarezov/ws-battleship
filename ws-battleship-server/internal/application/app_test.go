@@ -10,7 +10,7 @@ import (
 )
 
 func TestFindFreeMatch(t *testing.T) {
-	t.Run("cannot find a free match if there is not matches at all", func(t *testing.T) {
+	t.Run("cannot find a free match if there are no matches at all", func(t *testing.T) {
 		// 1. Arrange
 		var app App
 
@@ -21,9 +21,9 @@ func TestFindFreeMatch(t *testing.T) {
 		require.Nil(t, got)
 	})
 
-	t.Run("find a free match when we have an empty match without players", func(t *testing.T) {
+	t.Run("find a free match when there is an empty match without players", func(t *testing.T) {
 		// 1. Arrange
-		newRoom := domain.NewMatch(t.Context(), &config.Config{
+		newMatch := domain.NewMatch(t.Context(), &config.Config{
 			App: config.AppConfig{
 				KeepAlivePeriod: time.Second * 5,
 				RoomCapacityMax: 5,
@@ -32,7 +32,7 @@ func TestFindFreeMatch(t *testing.T) {
 
 		app := App{
 			matches: map[string]*domain.Match{
-				newRoom.ID(): newRoom,
+				newMatch.ID(): newMatch,
 			},
 		}
 
@@ -41,6 +41,72 @@ func TestFindFreeMatch(t *testing.T) {
 
 		// 3. Assert
 		require.NotNil(t, got)
-		require.Equal(t, newRoom.ID(), got.ID())
+		require.Equal(t, newMatch.ID(), got.ID())
+	})
+
+	t.Run("cannot find a free match when all rooms are full", func(t *testing.T) {
+		// 1. Arrange
+		newMatch1 := domain.NewMatch(t.Context(), &config.Config{
+			App: config.AppConfig{
+				KeepAlivePeriod: time.Second * 5,
+				RoomCapacityMax: 0,
+			},
+		}, nil)
+		newMatch2 := domain.NewMatch(t.Context(), &config.Config{
+			App: config.AppConfig{
+				KeepAlivePeriod: time.Second * 5,
+				RoomCapacityMax: 0,
+			},
+		}, nil)
+
+		app := App{
+			matches: map[string]*domain.Match{
+				newMatch1.ID(): newMatch1,
+				newMatch2.ID(): newMatch2,
+			},
+		}
+
+		// 2. Act
+		got := app.findFreeMatch()
+
+		// 3. Assert
+		require.Nil(t, got)
+	})
+
+	t.Run("find a free match", func(t *testing.T) {
+		// 1. Arrange
+		newMatch1 := domain.NewMatch(t.Context(), &config.Config{
+			App: config.AppConfig{
+				KeepAlivePeriod: time.Second * 5,
+				RoomCapacityMax: 0,
+			},
+		}, nil)
+		newMatch2 := domain.NewMatch(t.Context(), &config.Config{
+			App: config.AppConfig{
+				KeepAlivePeriod: time.Second * 5,
+				RoomCapacityMax: 0,
+			},
+		}, nil)
+		newMatch3 := domain.NewMatch(t.Context(), &config.Config{
+			App: config.AppConfig{
+				KeepAlivePeriod: time.Second * 5,
+				RoomCapacityMax: 1,
+			},
+		}, nil)
+
+		app := App{
+			matches: map[string]*domain.Match{
+				newMatch1.ID(): newMatch1,
+				newMatch2.ID(): newMatch2,
+				newMatch3.ID(): newMatch3,
+			},
+		}
+
+		// 2. Act
+		got := app.findFreeMatch()
+
+		// 3. Assert
+		require.NotNil(t, got)
+		require.Equal(t, newMatch3.ID(), got.ID())
 	})
 }
