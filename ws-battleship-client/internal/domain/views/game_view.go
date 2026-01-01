@@ -41,8 +41,16 @@ type GameView struct {
 
 func NewGameView(eventBus *events.EventBus, metadata domain.ClientMetadata) *GameView {
 	chatView := NewChatView()
+	chatView.SetMessageTypedHandler(func(msg string) {
+		// ONLY FOR CLIENT USAGE! To avoid circual appending in chat we have to use other event type instead of
+		// server's [SendMessageType].
+		// That's why we need something only for internal usage, that won't be sended to server.
+		// Consider this as internal events for local machine.
+		event, _ := clientEvents.NewPlayerTypedMessageEvent(metadata.Nickname, msg)
+		eventBus.Invoke(event)
+	})
 
-	view := &GameView{
+	return &GameView{
 		boards:         make(map[string]*BoardView),
 		leftBoard:      NewBoardView(),
 		rightBoard:     NewBoardView(),
@@ -50,17 +58,6 @@ func NewGameView(eventBus *events.EventBus, metadata domain.ClientMetadata) *Gam
 		gameTickerView: NewTickerView(),
 		chatView:       chatView,
 	}
-
-	chatView.SetMessageTypedHandler(func(msg string) {
-		// ONLY FOR CLIENT USAGE! To avoid circual broadcasts we have to use other event type instead of
-		// server's [SendMessageType].
-		// That's why we need something only for internal usage, that won't be sended to server.
-		// Consider this as internal events.
-		event, _ := clientEvents.NewPlayerTypedMessageEvent(metadata.Nickname, msg)
-		eventBus.Invoke(event)
-	})
-
-	return view
 }
 
 func (v *GameView) Init() tea.Cmd {

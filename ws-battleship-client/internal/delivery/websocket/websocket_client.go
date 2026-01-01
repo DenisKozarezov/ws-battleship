@@ -20,10 +20,9 @@ const (
 )
 
 type WebsocketClient struct {
-	once   sync.Once
-	wg     sync.WaitGroup
-	ctx    context.Context
-	cancel context.CancelFunc
+	once sync.Once
+	wg   sync.WaitGroup
+	ctx  context.Context
 
 	cfg     *config.AppConfig
 	logger  logger.Logger
@@ -34,11 +33,8 @@ type WebsocketClient struct {
 }
 
 func NewClient(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
-	ctx, cancel := context.WithCancel(ctx)
-
 	return &WebsocketClient{
 		ctx:     ctx,
-		cancel:  cancel,
 		cfg:     cfg,
 		logger:  logger,
 		readCh:  make(chan events.Event, events.ReadBufferBytesMax),
@@ -86,7 +82,6 @@ func (c *WebsocketClient) Connect(ctx context.Context, metadata domain.ClientMet
 
 func (c *WebsocketClient) Shutdown() error {
 	c.once.Do(func() {
-		c.cancel()
 		close(c.closeCh)
 		if err := c.conn.Close(); err != nil {
 			c.logger.Errorf("failed to close a websocket client: %s", err)

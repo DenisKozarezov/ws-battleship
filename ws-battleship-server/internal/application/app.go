@@ -129,7 +129,7 @@ func (r *App) findFreeMatch() *domain.Match {
 	}
 
 	for _, match := range r.matches {
-		if match.CheckAvailable() == nil {
+		if match.CheckIsAvailable() == nil {
 			return match
 		}
 	}

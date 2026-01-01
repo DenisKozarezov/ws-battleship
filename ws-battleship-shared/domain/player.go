@@ -13,6 +13,13 @@ type PlayerModel struct {
 	Nickname string
 }
 
+func (m *PlayerModel) Equal(rhs *PlayerModel) bool {
+	if rhs == nil {
+		return false
+	}
+	return m.ID == rhs.ID
+}
+
 func NewPlayerModel(metadata ClientMetadata) *PlayerModel {
 	return &PlayerModel{
 		Board:    shuffleBoard(),

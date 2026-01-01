@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
+	"time"
 	"ws-battleship-server/internal/config"
 	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
@@ -20,6 +22,9 @@ type Match struct {
 	isClosed      bool
 	turningPlayer *domain.PlayerModel
 	gameModel     domain.GameModel
+
+	ctx context.Context
+	wg  sync.WaitGroup
 }
 
 func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Match {
@@ -27,6 +32,7 @@ func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Ma
 		room:   NewRoom(ctx, &cfg.App, logger),
 		cfg:    cfg,
 		logger: logger,
+		ctx:    ctx,
 	}
 
 	m.room.SetPlayerJoinedHandler(m.onPlayerJoined)
@@ -55,7 +61,13 @@ func (m *Match) Compare(rhs *Match) int {
 func (m *Match) Close() error {
 	m.isClosed = true
 	m.logger.Infof("match id=%s is closing...", m.ID())
-	return m.room.Close()
+	if err := m.room.Close(); err != nil {
+		return err
+	}
+
+	m.wg.Wait()
+	m.logger.Infof("match id=%s is closed", m.ID())
+	return nil
 }
 
 func (m *Match) JoinNewPlayer(newPlayer *Player) error {
@@ -77,16 +89,15 @@ func (m *Match) StartMatch() error {
 
 	m.room.SendChatNotification("Game started!")
 
-	var randTurningPlayer *domain.PlayerModel
-	if rand.Intn(2) == 0 {
-		randTurningPlayer = m.gameModel.LeftPlayer
-	} else {
-		randTurningPlayer = m.gameModel.RightPlayer
-	}
-	return m.GiveTurnToPlayer(randTurningPlayer)
+	m.wg.Add(1)
+	go func() {
+		defer m.wg.Done()
+		m.gameLoop()
+	}()
+	return nil
 }
 
-func (m *Match) CheckAvailable() error {
+func (m *Match) CheckIsAvailable() error {
 	if m.isClosed {
 		return ErrRoomIsClosed
 	}
@@ -105,10 +116,27 @@ func (m *Match) CheckAvailable() error {
 func (m *Match) IsReadyToStart() bool {
 	return !m.isClosed && !m.isStarted && m.room.IsFull()
 }
-func (m *Match) GiveTurnToPlayer(player *domain.PlayerModel) error {
-	m.turningPlayer = player
 
-	event, err := events.NewPlayerTurnEvent(player, m.cfg.Game.GameTurnTime)
+func (m *Match) GiveTurnToNextPlayer() error {
+	if m.turningPlayer == nil {
+		return m.GiveTurnToRandomPlayer()
+	}
+
+	if m.turningPlayer.Equal(m.gameModel.LeftPlayer) {
+		return m.GiveTurnToPlayer(m.gameModel.RightPlayer)
+	} else {
+		return m.GiveTurnToPlayer(m.gameModel.LeftPlayer)
+	}
+}
+
+func (m *Match) GiveTurnToRandomPlayer() error {
+	return m.GiveTurnToPlayer(m.getRandomPlayer())
+}
+
+func (m *Match) GiveTurnToPlayer(turningPlayer *domain.PlayerModel) error {
+	m.turningPlayer = turningPlayer
+
+	event, err := events.NewPlayerTurnEvent(m.turningPlayer, m.cfg.Game.GameTurnTime)
 	if err != nil {
 		return err
 	}
@@ -117,8 +145,43 @@ func (m *Match) GiveTurnToPlayer(player *domain.PlayerModel) error {
 		return err
 	}
 
-	m.room.SendChatNotification(fmt.Sprintf("Player '%s' turns now.", player.Nickname))
+	m.room.SendChatNotification(fmt.Sprintf("Player '%s' turns now.", m.turningPlayer.Nickname))
 	return nil
+}
+
+func (m *Match) getRandomPlayer() *domain.PlayerModel {
+	randIdx := rand.Intn(m.room.Capacity())
+	return m.room.GetPlayers()[randIdx].Model
+}
+
+func (m *Match) gameLoop() {
+	gameTurnTimer := time.NewTimer(m.cfg.Game.GameTurnTime)
+	defer gameTurnTimer.Stop()
+
+	if err := m.GiveTurnToRandomPlayer(); err != nil {
+		m.logger.Errorf("failed to get the first turn to a random player: %s", err)
+		return
+	}
+
+	for {
+		select {
+		case <-m.ctx.Done():
+			return
+		case <-gameTurnTimer.C:
+			if err := m.GiveTurnToNextPlayer(); err != nil {
+				m.logger.Errorf("failed to get turn to the next player: %s", err)
+			}
+			gameTurnTimer.Reset(m.cfg.Game.GameTurnTime)
+		}
+	}
+}
+
+func (m *Match) allPlayersUpdate() error {
+	event, err := events.NewPlayerUpdateStateEvent(&m.gameModel)
+	if err != nil {
+		return err
+	}
+	return m.room.Broadcast(event)
 }
 
 func (m *Match) onPlayerJoined(joinedPlayer *Player) {
@@ -135,15 +198,6 @@ func (m *Match) onPlayerJoined(joinedPlayer *Player) {
 	}
 
 	if err := m.StartMatch(); err != nil {
-		m.logger.Errorf("failed to start a match id=%s: %s", m.ID(), err)
+		m.logger.Errorf("failed to start match id=%s: %s", m.ID(), err)
 	}
-}
-
-func (m *Match) allPlayersUpdate() error {
-	event, err := events.NewPlayerUpdateStateEvent(&m.gameModel)
-	if err != nil {
-		return err
-	}
-
-	return m.room.Broadcast(event)
 }

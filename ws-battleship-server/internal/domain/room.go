@@ -15,11 +15,10 @@ import (
 )
 
 type Room struct {
-	once   sync.Once
-	ctx    context.Context
-	cancel context.CancelFunc
-	mu     sync.RWMutex
-	wg     sync.WaitGroup
+	once sync.Once
+	ctx  context.Context
+	mu   sync.RWMutex
+	wg   sync.WaitGroup
 
 	players    map[string]*Player
 	joinCh     chan *Player
@@ -35,11 +34,8 @@ type Room struct {
 }
 
 func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *Room {
-	ctx, cancel := context.WithCancel(ctx)
-
 	r := &Room{
 		ctx:        ctx,
-		cancel:     cancel,
 		players:    make(map[string]*Player, cfg.RoomCapacityMax),
 		joinCh:     make(chan *Player, cfg.RoomCapacityMax),
 		leaveCh:    make(chan *Player, cfg.RoomCapacityMax),
@@ -83,7 +79,6 @@ func (c *Room) Compare(rhs *Room) int {
 
 func (r *Room) Close() error {
 	r.once.Do(func() {
-		r.cancel()
 		close(r.closeCh)
 		r.logger.Infof("room id=%s [players: %d] is closing...", r.ID(), r.Capacity())
 	})
