@@ -1,11 +1,9 @@
 package views
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"time"
-	"ws-battleship-client/internal/config"
 	clientEvents "ws-battleship-client/internal/domain/events"
 	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
@@ -30,23 +28,24 @@ type View interface {
 }
 
 type GameView struct {
-	cfg            *config.GameConfig
-	leftBoard      *BoardView
-	rightBoard     *BoardView
+	localNickname string
+
+	boards       map[string]*BoardView
+	leftBoard    *BoardView
+	rightBoard   *BoardView
+	turningBoard *BoardView
+
 	turnTimerView  *TimerView
 	gameTickerView *TickerView
 	chatView       *ChatView
-
-	eventBus     *events.EventBus
-	currentBoard *BoardView
 }
 
-func NewGameView(cfg *config.GameConfig, eventBus *events.EventBus, metadata domain.ClientMetadata) *GameView {
+func NewGameView(eventBus *events.EventBus, metadata domain.ClientMetadata) *GameView {
 	chatView := NewChatView()
 
 	v := &GameView{
-		cfg:            cfg,
-		eventBus:       eventBus,
+		localNickname:  metadata.Nickname,
+		boards:         make(map[string]*BoardView),
 		leftBoard:      NewBoardView(),
 		rightBoard:     NewBoardView(),
 		turnTimerView:  NewTimerView(),
@@ -56,13 +55,15 @@ func NewGameView(cfg *config.GameConfig, eventBus *events.EventBus, metadata dom
 
 	eventBus.Subscribe(events.SendMessageType, v.onMessageReceivedHandler)
 	eventBus.Subscribe(events.GameStartEventType, v.onGameStartedHandler)
+	eventBus.Subscribe(events.PlayerUpdateStateEventType, v.onPlayerUpdateState)
+	eventBus.Subscribe(events.PlayerTurnEventType, v.onPlayerTurnHandler)
 	chatView.SetMessageTypedHandler(func(msg string) {
 		// ONLY FOR CLIENT USAGE! To avoid circual broadcasts we have to use other event type instead of
 		// server's [SendMessageType].
 		// That's why we need something only for internal usage, that won't be sended to server.
 		// Consider this as internal events.
 		event, _ := clientEvents.NewPlayerTypedMessageEvent(metadata.Nickname, msg)
-		eventBus.Invoke(context.Background(), event)
+		eventBus.Invoke(event)
 	})
 
 	return v
@@ -70,13 +71,14 @@ func NewGameView(cfg *config.GameConfig, eventBus *events.EventBus, metadata dom
 
 func (v *GameView) Init() tea.Cmd {
 	v.turnTimerView.SetExpireCallback(func() {
-		v.currentBoard.SetSelectable(false)
+		v.turningBoard.SetSelectable(false)
 	})
 
 	return tea.Batch(v.leftBoard.Init(),
 		v.rightBoard.Init(),
-		v.chatView.Init(),
 		v.turnTimerView.Init(),
+		v.gameTickerView.Init(),
+		v.chatView.Init(),
 		tea.SetWindowTitle("Battleship"))
 }
 
@@ -121,27 +123,21 @@ func (v *GameView) View() string {
 	return gameView
 }
 
-func (v *GameView) StartGame(gameModel domain.GameModel) {
-	players := make([]*domain.PlayerModel, 0, len(gameModel.Players))
-	for _, player := range gameModel.Players {
-		players = append(players, player)
-	}
-
-	v.leftBoard.SetPlayer(players[0])
-	v.rightBoard.SetPlayer(players[1])
-
+func (v *GameView) StartGame(gameModel *domain.GameModel) {
 	v.gameTickerView.Start()
-	v.GiveTurnToPlayer(v.leftBoard)
 }
 
-func (v *GameView) GiveTurnToPlayer(board *BoardView) {
-	if v.currentBoard != nil {
-		v.currentBoard.SetSelectable(false)
+func (v *GameView) GiveTurnToPlayer(turningPlayer *domain.PlayerModel, remainingTime time.Duration) {
+	for _, board := range v.boards {
+		board.SetSelectable(false)
 	}
-	v.currentBoard = board
-	v.currentBoard.SetSelectable(true)
 
-	v.turnTimerView.Reset(int(v.cfg.TurnTime.Seconds()))
+	v.turningBoard = v.boards[turningPlayer.ID]
+	if v.isLocalPlayerTurn() {
+		v.turningBoard.SetSelectable(true)
+	}
+
+	v.turnTimerView.Reset(int(remainingTime.Seconds()))
 	v.turnTimerView.Start()
 }
 
@@ -167,10 +163,14 @@ func (v *GameView) renderGameTurn() string {
 }
 
 func (v *GameView) isLocalPlayerTurn() bool {
-	return v.currentBoard == v.leftBoard
+	if v.turningBoard == nil {
+		return false
+	}
+
+	return v.turningBoard.nickname == v.localNickname
 }
 
-func (v *GameView) onGameStartedHandler(_ context.Context, e events.Event) error {
+func (v *GameView) onGameStartedHandler(e events.Event) error {
 	var gameStartEvent events.GameStartEvent
 	if err := json.Unmarshal(e.Data, &gameStartEvent); err != nil {
 		return fmt.Errorf("failed to unmarshal event payload: %w", err)
@@ -180,7 +180,35 @@ func (v *GameView) onGameStartedHandler(_ context.Context, e events.Event) error
 	return nil
 }
 
-func (v *GameView) onMessageReceivedHandler(ctx context.Context, e events.Event) error {
+func (v *GameView) onPlayerUpdateState(e events.Event) error {
+	var playerUpdateEvent events.PlayerUpdateStateEvent
+	if err := json.Unmarshal(e.Data, &playerUpdateEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	if playerUpdateEvent.GameModel.LeftPlayer != nil {
+		v.leftBoard.SetPlayer(playerUpdateEvent.GameModel.LeftPlayer)
+		v.boards[playerUpdateEvent.GameModel.LeftPlayer.ID] = v.leftBoard
+	}
+
+	if playerUpdateEvent.GameModel.RightPlayer != nil {
+		v.rightBoard.SetPlayer(playerUpdateEvent.GameModel.RightPlayer)
+		v.boards[playerUpdateEvent.GameModel.RightPlayer.ID] = v.rightBoard
+	}
+	return nil
+}
+
+func (v *GameView) onPlayerTurnHandler(e events.Event) error {
+	var playerTurnEvent events.PlayerTurnEvent
+	if err := json.Unmarshal(e.Data, &playerTurnEvent); err != nil {
+		return fmt.Errorf("failed to unmarshal event payload: %w", err)
+	}
+
+	v.GiveTurnToPlayer(playerTurnEvent.Player, playerTurnEvent.RemainingTime)
+	return nil
+}
+
+func (v *GameView) onMessageReceivedHandler(e events.Event) error {
 	var sendMessageEvent events.SendMessageEvent
 	if err := json.Unmarshal(e.Data, &sendMessageEvent); err != nil {
 		return fmt.Errorf("failed to unmarshal event payload: %w", err)

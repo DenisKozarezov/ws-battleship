@@ -12,7 +12,7 @@ type Player struct {
 
 func NewPlayer(client Client, metadata domain.ClientMetadata) *Player {
 	return &Player{
-		Model:  domain.NewPlayerModel(metadata),
+		Model:  domain.NewPlayerModel(client.ID(), metadata),
 		Client: client,
 	}
 }

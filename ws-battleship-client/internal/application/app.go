@@ -13,6 +13,7 @@ import (
 	"ws-battleship-shared/pkg/logger"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
 )
 
 type Client interface {
@@ -35,14 +36,14 @@ func NewApp(ctx context.Context, cfg *config.Config, logger logger.Logger) *App 
 	client := client.NewClient(ctx, &cfg.App, logger)
 	eventBus := events.NewEventBus()
 
-	metadata := domain.ClientMetadata{Nickname: "Player 1"}
+	metadata := domain.ClientMetadata{Nickname: uuid.New().Domain().String()}
 
 	a := &App{
 		cfg:      cfg,
 		logger:   logger,
 		client:   client,
 		eventBus: eventBus,
-		gameView: views.NewGameView(&cfg.Game, eventBus, metadata),
+		gameView: views.NewGameView(eventBus, metadata),
 		metadata: metadata,
 	}
 
@@ -77,7 +78,6 @@ func (a *App) startClient(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-
 		if err := a.client.Connect(ctx, a.metadata); err != nil {
 			a.logger.Fatalf("failed to connect to server: %s", err)
 		}
@@ -102,7 +102,7 @@ func (a *App) handleConnection(ctx context.Context) {
 				return
 			}
 
-			if err := a.eventBus.Invoke(ctx, msg); err != nil {
+			if err := a.eventBus.Invoke(msg); err != nil {
 				a.logger.Errorf("error while invoking event bus: %s", err)
 			}
 		}
@@ -120,6 +120,7 @@ func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 			wg.Done()
 			ticker.Stop()
 		}()
+
 		for {
 			if err := ctx.Err(); err != nil {
 				return
@@ -141,7 +142,7 @@ func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 	clearTerminal()
 }
 
-func (a *App) onPlayerTypedMessage(_ context.Context, e events.Event) error {
+func (a *App) onPlayerTypedMessage(e events.Event) error {
 	e.Type = events.SendMessageType
 	return a.client.SendMessage(e)
 }

@@ -26,7 +26,7 @@ func main() {
 		panic(fmt.Sprintln("failed to create a logger", err))
 	}
 
-	app := application.NewApp(&cfg.App, logger)
+	app := application.NewApp(cfg, logger)
 
 	router := routers.NewDefaultRouter(logger)
 	app.Run(ctx, router)

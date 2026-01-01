@@ -16,16 +16,18 @@ const (
 const TimestampFormat = time.RFC3339
 
 const (
-	PlayerJoinedEventType EventType = "join"
-	PlayerLeavedEventType EventType = "leave"
-	GameStartEventType    EventType = "game_start"
-	SendMessageType       EventType = "send_message"
+	PlayerJoinedEventType      EventType = "player_join"
+	PlayerLeftEventType        EventType = "player_leave"
+	PlayerTurnEventType        EventType = "player_turn"
+	PlayerUpdateStateEventType EventType = "player_update_state"
+	GameStartEventType         EventType = "game_start"
+	SendMessageType            EventType = "send_message"
 )
 
 type Event struct {
-	Timestamp string          `json:"timestamp"`
 	Type      EventType       `json:"type"`
-	Data      json.RawMessage `json:"data"`
+	Timestamp string          `json:"timestamp"`
+	Data      json.RawMessage `json:"data,omitempty"`
 }
 
 func NewEvent(eventType EventType, data any) (Event, error) {
@@ -41,16 +43,6 @@ func NewEvent(eventType EventType, data any) (Event, error) {
 	}, nil
 }
 
-type GameStartEvent struct {
-	GameModel domain.GameModel `json:"game_model"`
-}
-
-func NewGameStartEvent(gameModel domain.GameModel) (Event, error) {
-	return NewEvent(GameStartEventType, GameStartEvent{
-		GameModel: gameModel,
-	})
-}
-
 type PlayerJoinedEvent struct {
 	Player *domain.PlayerModel `json:"joined_player"`
 }
@@ -61,13 +53,35 @@ func NewPlayerJoinedEvent(joinedPlayer *domain.PlayerModel) (Event, error) {
 	})
 }
 
-type PlayerLeavedEvent struct {
-	Player *domain.PlayerModel `json:"leave_player"`
+type PlayerLeftEvent struct {
+	Player *domain.PlayerModel `json:"left_player"`
 }
 
-func NewPlayerLeavedEvent(leavePlayer *domain.PlayerModel) (Event, error) {
-	return NewEvent(PlayerLeavedEventType, PlayerLeavedEvent{
-		Player: leavePlayer,
+func NewPlayerLeftEvent(leftPlayer *domain.PlayerModel) (Event, error) {
+	return NewEvent(PlayerLeftEventType, PlayerLeftEvent{
+		Player: leftPlayer,
+	})
+}
+
+type PlayerTurnEvent struct {
+	Player        *domain.PlayerModel `json:"current_player"`
+	RemainingTime time.Duration       `json:"remaining_time"`
+}
+
+func NewPlayerTurnEvent(player *domain.PlayerModel, remainingTime time.Duration) (Event, error) {
+	return NewEvent(PlayerTurnEventType, PlayerTurnEvent{
+		Player:        player,
+		RemainingTime: remainingTime,
+	})
+}
+
+type GameStartEvent struct {
+	GameModel *domain.GameModel `json:"game_model"`
+}
+
+func NewGameStartEvent(gameModel *domain.GameModel) (Event, error) {
+	return NewEvent(GameStartEventType, GameStartEvent{
+		GameModel: gameModel,
 	})
 }
 
@@ -88,5 +102,15 @@ func NewChatNotificationEvent(message string) (Event, error) {
 	return NewEvent(SendMessageType, SendMessageEvent{
 		Message:        message,
 		IsNotification: true,
+	})
+}
+
+type PlayerUpdateStateEvent struct {
+	GameModel *domain.GameModel
+}
+
+func NewPlayerUpdateStateEvent(gameModel *domain.GameModel) (Event, error) {
+	return NewEvent(PlayerUpdateStateEventType, PlayerUpdateStateEvent{
+		GameModel: gameModel,
 	})
 }

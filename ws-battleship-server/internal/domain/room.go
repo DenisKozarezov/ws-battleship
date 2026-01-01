@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 	"ws-battleship-server/internal/config"
-	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
@@ -31,6 +30,8 @@ type Room struct {
 	id     string
 	cfg    *config.AppConfig
 	logger logger.Logger
+
+	playerJoinedHandler func(joinedPlayer *Player)
 }
 
 func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *Room {
@@ -122,19 +123,32 @@ func (r *Room) LeavePlayer(player *Player) {
 	}
 }
 
-func (r *Room) Broadcast(e events.Event) {
-	for _, player := range r.GetPlayers() {
-		if err := player.SendMessage(e); err != nil {
-			r.logger.Errorf("failed to send a broadcast message to player id=%s", player.ID())
-		}
-	}
-}
-
 func (r *Room) Capacity() (capacity int) {
 	r.mu.RLock()
 	capacity = len(r.players)
 	r.mu.RUnlock()
 	return
+}
+
+func (r *Room) SendChatNotification(msg string) {
+	event, err := events.NewChatNotificationEvent(msg)
+	if err != nil {
+		r.logger.Errorf("couldn't send a chat notification: %s", err)
+		return
+	}
+
+	if err = r.Broadcast(event); err != nil {
+		r.logger.Error(err)
+	}
+}
+
+func (r *Room) Broadcast(e events.Event) error {
+	for _, player := range r.GetPlayers() {
+		if err := player.SendMessage(e); err != nil {
+			return fmt.Errorf("failed to send a broadcast message to player id=%s", player.ID())
+		}
+	}
+	return nil
 }
 
 func (r *Room) GetPlayers() []*Player {
@@ -147,22 +161,8 @@ func (r *Room) GetPlayers() []*Player {
 	return players
 }
 
-func (r *Room) StartMatch() {
-	players := r.GetPlayers()
-
-	r.logger.Infof("room id=%s is starting a match [players: %d]", r.ID(), len(players))
-
-	playerModels := make(map[string]*domain.PlayerModel, len(players))
-	for _, player := range players {
-		playerModels[player.ID()] = player.Model
-	}
-
-	gameModel := domain.NewGameModel(playerModels)
-
-	event, _ := events.NewGameStartEvent(gameModel)
-	r.Broadcast(event)
-
-	r.sendChatNotification("Game started!")
+func (r *Room) SetPlayerJoinedHandler(fn func(joinedPlayer *Player)) {
+	r.playerJoinedHandler = fn
 }
 
 func (r *Room) handleConnections(ctx context.Context) {
@@ -179,20 +179,14 @@ func (r *Room) handleConnections(ctx context.Context) {
 			return
 
 		case joinedPlayer, opened := <-r.joinCh:
-			if !opened {
-				return
-			}
-			r.onPlayerJoinedHandler(joinedPlayer)
-
-			if r.IsFull() {
-				r.StartMatch()
+			if opened {
+				r.onPlayerJoinedHandler(joinedPlayer)
 			}
 
-		case leavedPlayer, opened := <-r.leaveCh:
-			if !opened {
-				return
+		case leftPlayer, opened := <-r.leaveCh:
+			if opened {
+				r.onPlayerLeftHandler(leftPlayer)
 			}
-			r.onPlayerLeavedHandler(leavedPlayer)
 
 		case msg, opened := <-r.messagesCh:
 			if opened {
@@ -273,15 +267,6 @@ func (r *Room) unregisterPlayer(player *Player) error {
 	return nil
 }
 
-func (r *Room) sendChatNotification(msg string) {
-	event, err := events.NewChatNotificationEvent(msg)
-	if err != nil {
-		r.logger.Errorf("couldn't send a chat notification: %s", err)
-		return
-	}
-	r.Broadcast(event)
-}
-
 func (r *Room) handleEvent(e events.Event) {
 	switch e.Type {
 	case events.SendMessageType:
@@ -301,26 +286,36 @@ func (r *Room) onPlayerJoinedHandler(joinedPlayer *Player) error {
 	if err != nil {
 		return err
 	}
-	r.Broadcast(event)
 
-	r.sendChatNotification(fmt.Sprintf("Player '%s' joined the room.", joinedPlayer.Nickname()))
+	if err = r.Broadcast(event); err != nil {
+		return err
+	}
+
+	r.SendChatNotification(fmt.Sprintf("Player '%s' joined the room.", joinedPlayer.Nickname()))
 	r.logger.Infof("player %s joined the room id=%s [players: %d]", joinedPlayer.String(), r.ID(), r.Capacity())
+
+	if r.playerJoinedHandler != nil {
+		r.playerJoinedHandler(joinedPlayer)
+	}
 	return nil
 }
 
-func (r *Room) onPlayerLeavedHandler(leavedPlayer *Player) error {
-	if err := r.unregisterPlayer(leavedPlayer); err != nil {
+func (r *Room) onPlayerLeftHandler(leftPlayer *Player) error {
+	if err := r.unregisterPlayer(leftPlayer); err != nil {
 		return fmt.Errorf("failed to unregister player: %s", err)
 	}
 
-	event, err := events.NewPlayerLeavedEvent(leavedPlayer.Model)
+	event, err := events.NewPlayerLeftEvent(leftPlayer.Model)
 	if err != nil {
 		return err
 	}
-	r.Broadcast(event)
 
-	r.sendChatNotification(fmt.Sprintf("Player '%s' left the room.", leavedPlayer.Nickname()))
-	r.logger.Infof("player %s left the room id=%s [players: %d]", leavedPlayer.String(), r.ID(), r.Capacity())
+	if err = r.Broadcast(event); err != nil {
+		return err
+	}
+
+	r.SendChatNotification(fmt.Sprintf("Player '%s' left the room.", leftPlayer.Nickname()))
+	r.logger.Infof("player %s left the room id=%s [players: %d]", leftPlayer.String(), r.ID(), r.Capacity())
 
 	return nil
 }
@@ -335,8 +330,6 @@ func (r *Room) onPlayerSentMessageHandler(event events.Event) error {
 	if err != nil {
 		return err
 	}
-	r.Broadcast(event)
 
-	r.logger.Infof("player '%s' sent a message", playerSentMesssageEvent.Sender)
-	return nil
+	return r.Broadcast(event)
 }

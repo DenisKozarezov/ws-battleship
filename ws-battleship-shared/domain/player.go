@@ -7,12 +7,14 @@ import (
 
 type PlayerModel struct {
 	Board    Board
+	ID       string
 	Nickname string
 }
 
-func NewPlayerModel(metadata ClientMetadata) *PlayerModel {
+func NewPlayerModel(playerID string, metadata ClientMetadata) *PlayerModel {
 	return &PlayerModel{
 		Board:    shuffleBoard(),
+		ID:       playerID,
 		Nickname: metadata.Nickname,
 	}
 }

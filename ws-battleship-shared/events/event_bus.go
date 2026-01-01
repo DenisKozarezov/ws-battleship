@@ -1,11 +1,10 @@
 package events
 
 import (
-	"context"
 	"sync"
 )
 
-type EventHandler = func(context.Context, Event) error
+type EventHandler = func(Event) error
 
 type EventBus struct {
 	mu       sync.RWMutex
@@ -42,14 +41,14 @@ func (r *EventBus) Unsubscribe(eventType EventType) {
 	r.mu.Unlock()
 }
 
-func (r *EventBus) Invoke(ctx context.Context, e Event) error {
+func (r *EventBus) Invoke(event Event) error {
 	r.mu.RLock()
-	handlers, found := r.handlers[e.Type]
+	handlers, found := r.handlers[event.Type]
 	r.mu.RUnlock()
 
 	if found {
 		for i := range handlers {
-			if err := handlers[i](ctx, e); err != nil {
+			if err := handlers[i](event); err != nil {
 				return err
 			}
 		}
