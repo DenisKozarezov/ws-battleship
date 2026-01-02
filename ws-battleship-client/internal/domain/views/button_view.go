@@ -33,14 +33,14 @@ type ButtonView struct {
 	styles ButtonStyles
 	opts   []ButtonOption
 
-	clickHandler func()
-
 	text         string
 	isEnabled    bool
 	isFocused    bool
 	isClicked    bool
 	resetTime    time.Time
 	currentStyle *lipgloss.Style
+
+	clickHandler func()
 }
 
 func NewButtonView(text string, opts ...ButtonOption) *ButtonView {

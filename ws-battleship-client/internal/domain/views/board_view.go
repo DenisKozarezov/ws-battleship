@@ -47,10 +47,9 @@ func NewBoardView() *BoardView {
 		}
 	}
 	return &BoardView{
-		nickname:     "Unknown",
-		board:        emptyBoard,
-		alphabet:     string(alphabet),
-		isSelectable: false,
+		nickname: "Unknown",
+		board:    emptyBoard,
+		alphabet: string(alphabet),
 	}
 }
 

@@ -20,10 +20,7 @@ func TestSelection(t *testing.T) {
 		view.selectionUp()
 
 		// 3. Assert
-		require.Equal(t, 4, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 4, 5)
 	})
 
 	t.Run("selection up - check bounds", func(t *testing.T) {
@@ -38,10 +35,7 @@ func TestSelection(t *testing.T) {
 		view.selectionUp()
 
 		// 3. Assert
-		require.Zero(t, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 0, 5)
 	})
 
 	t.Run("selection down", func(t *testing.T) {
@@ -54,10 +48,7 @@ func TestSelection(t *testing.T) {
 		view.selectionDown()
 
 		// 3. Assert
-		require.Equal(t, 6, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 6, 5)
 	})
 
 	t.Run("selection down - check bounds", func(t *testing.T) {
@@ -72,10 +63,7 @@ func TestSelection(t *testing.T) {
 		view.selectionDown()
 
 		// 3. Assert
-		require.Equal(t, view.board.Size()-1, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, view.board.Size()-1, 5)
 	})
 
 	t.Run("selection left", func(t *testing.T) {
@@ -88,10 +76,7 @@ func TestSelection(t *testing.T) {
 		view.selectionLeft()
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Equal(t, 4, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, 4)
 	})
 
 	t.Run("selection left - check bounds", func(t *testing.T) {
@@ -106,10 +91,7 @@ func TestSelection(t *testing.T) {
 		view.selectionLeft()
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Zero(t, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, 0)
 	})
 
 	t.Run("selection right", func(t *testing.T) {
@@ -122,10 +104,7 @@ func TestSelection(t *testing.T) {
 		view.selectionRight()
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Equal(t, 6, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, 6)
 	})
 
 	t.Run("selection right - check bounds", func(t *testing.T) {
@@ -140,10 +119,7 @@ func TestSelection(t *testing.T) {
 		view.selectionRight()
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Equal(t, view.board.Size()-1, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, view.board.Size()-1)
 	})
 }
 
@@ -275,10 +251,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 		view.Update(tea.KeyMsg{Type: tea.KeyUp})
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, 5)
 	})
 	t.Run("selection down", func(t *testing.T) {
 		// 1. Arrange
@@ -290,10 +263,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 		view.Update(tea.KeyMsg{Type: tea.KeyDown})
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, 5)
 	})
 	t.Run("selection left", func(t *testing.T) {
 		// 1. Arrange
@@ -305,10 +275,7 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 		view.Update(tea.KeyMsg{Type: tea.KeyLeft})
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, 5)
 	})
 	t.Run("selection right", func(t *testing.T) {
 		// 1. Arrange
@@ -320,9 +287,13 @@ func TestSelectionWhenBoardIsNotSelectable(t *testing.T) {
 		view.Update(tea.KeyMsg{Type: tea.KeyRight})
 
 		// 3. Assert
-		require.Equal(t, 5, view.cellY)
-		require.Equal(t, 5, view.cellX)
-		require.Equal(t, view.cellY, view.selectedRowIdx)
-		require.Equal(t, view.cellX*2, view.selectedColIdx)
+		assertSelectionCoordinates(t, view, 5, 5)
 	})
+}
+
+func assertSelectionCoordinates(t *testing.T, view *BoardView, expectedY, expectedX int) {
+	require.Equal(t, expectedY, view.cellY)
+	require.Equal(t, expectedX, view.cellX)
+	require.Equal(t, view.cellY, view.selectedRowIdx)
+	require.Equal(t, view.cellX*2, view.selectedColIdx)
 }
