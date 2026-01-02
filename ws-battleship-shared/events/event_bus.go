@@ -1,6 +1,8 @@
 package events
 
 import (
+	"reflect"
+	"slices"
 	"sync"
 )
 
@@ -17,34 +19,43 @@ func NewEventBus() *EventBus {
 	}
 }
 
-func (r *EventBus) Subscribe(eventType EventType, handlers ...EventHandler) {
+func (b *EventBus) Subscribe(eventType EventType, handlers ...EventHandler) {
 	if len(handlers) == 0 {
 		return
 	}
 
-	r.mu.Lock()
-	r.handlers[eventType] = append(r.handlers[eventType], handlers...)
-	r.mu.Unlock()
+	b.mu.Lock()
+	b.handlers[eventType] = append(b.handlers[eventType], handlers...)
+	b.mu.Unlock()
 }
 
-func (r *EventBus) Unsubscribe(eventType EventType) {
-	r.mu.RLock()
-	_, found := r.handlers[eventType]
-	r.mu.RUnlock()
+func (b *EventBus) UnsubscribeAll(eventType EventType) {
+	b.mu.Lock()
+	delete(b.handlers, eventType)
+	b.mu.Unlock()
+}
 
-	if !found {
+func (b *EventBus) Unsubscribe(eventType EventType, handlers ...EventHandler) {
+	if len(handlers) == 0 {
 		return
 	}
 
-	r.mu.Lock()
-	delete(r.handlers, eventType)
-	r.mu.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for i := range handlers {
+		b.handlers[eventType] = slices.DeleteFunc(b.handlers[eventType], func(item EventHandler) bool {
+			lhs := reflect.ValueOf(handlers[i]).Pointer()
+			rhs := reflect.ValueOf(item).Pointer()
+			return rhs == lhs
+		})
+	}
 }
 
-func (r *EventBus) Invoke(event Event) error {
-	r.mu.RLock()
-	handlers, found := r.handlers[event.Type]
-	r.mu.RUnlock()
+func (b *EventBus) Invoke(event Event) error {
+	b.mu.RLock()
+	handlers, found := b.handlers[event.Type]
+	b.mu.RUnlock()
 
 	if found {
 		for i := range handlers {
