@@ -20,27 +20,33 @@ type Cell = rune
 
 type Board [len(boardAlphabet)][len(boardAlphabet)]Cell
 
-func (b Board) IsCellDead(rowIdx, colIdx byte) bool {
-	cellType := b.GetCellType(rowIdx, colIdx)
+func (b Board) IsCellDead(cellX, cellY byte) bool {
+	cellType := b.GetCellType(cellX, cellY)
 	if cellType == Null {
 		return false
 	}
 	return cellType == Dead
 }
 
-func (b Board) IsCellEmpty(rowIdx, colIdx byte) bool {
-	cellType := b.GetCellType(rowIdx, colIdx)
+func (b Board) IsCellEmpty(cellX, cellY byte) bool {
+	cellType := b.GetCellType(cellX, cellY)
 	if cellType == Null {
 		return true
 	}
 	return cellType == Empty
 }
 
-func (b Board) GetCellType(rowIdx, colIdx byte) CellType {
-	if rowIdx >= byte(b.Size()) || colIdx >= byte(b.Size()) {
-		return Null
+func (b Board) GetCellType(cellX, cellY byte) CellType {
+	if b.checkBounds(cellX, cellY) {
+		return b[cellY][cellX]
 	}
-	return b[rowIdx][colIdx]
+	return Null
+}
+
+func (b Board) SetCell(cellX, cellY byte, cellType CellType) {
+	if b.checkBounds(cellX, cellY) {
+		b[cellY][cellX] = cellType
+	}
 }
 
 func (b Board) Size() int {
@@ -88,6 +94,10 @@ func (b Board) UnmarshalBinary(buf []byte) error {
 		}
 	}
 	return nil
+}
+
+func (b Board) checkBounds(cellX, cellY byte) bool {
+	return cellX < byte(b.Size()) && cellY < byte(b.Size())
 }
 
 func (b Board) renderRow(rowIdx int) string {

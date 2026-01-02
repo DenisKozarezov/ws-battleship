@@ -20,6 +20,7 @@ const (
 	PlayerJoinedEventType      EventType = "player_join"
 	PlayerLeftEventType        EventType = "player_leave"
 	PlayerTurnEventType        EventType = "player_turn"
+	PlayerFireEventType        EventType = "player_fire"
 	PlayerUpdateStateEventType EventType = "player_update_state"
 	GameStartEventType         EventType = "game_start"
 	SendMessageType            EventType = "send_message"
@@ -80,6 +81,20 @@ func NewPlayerTurnEvent(player *domain.PlayerModel, remainingTime time.Duration)
 	return NewEvent(PlayerTurnEventType, PlayerTurnEvent{
 		Player:        player,
 		RemainingTime: remainingTime,
+	})
+}
+
+type PlayerFireEvent struct {
+	PlayerID domain.ClientID `json:"player_id"`
+	CellX    byte            `json:"cell_x"`
+	CellY    byte            `json:"cell_y"`
+}
+
+func NewPlayerFireEvent(playerID domain.ClientID, cellX, cellY byte) (Event, error) {
+	return NewEvent(PlayerFireEventType, PlayerFireEvent{
+		PlayerID: playerID,
+		CellX:    cellX,
+		CellY:    cellY,
 	})
 }
 

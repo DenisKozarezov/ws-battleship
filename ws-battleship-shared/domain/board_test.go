@@ -24,44 +24,44 @@ func TestBoardGetCellType(t *testing.T) {
 
 	for _, tt := range []struct {
 		name     string
-		rowIdx   byte
-		colIdx   byte
+		cellX    byte
+		cellY    byte
 		expected CellType
 	}{
 		{
 			name:     "out of bounds",
-			rowIdx:   255,
-			colIdx:   255,
+			cellX:    255,
+			cellY:    255,
 			expected: Null,
 		},
 		{
 			name:     "first cell of the first row",
-			rowIdx:   0,
-			colIdx:   0,
+			cellX:    0,
+			cellY:    0,
 			expected: Alive,
 		},
 		{
 			name:     "last cell of the first row",
-			rowIdx:   0,
-			colIdx:   byte(b.Size() - 1),
+			cellX:    byte(b.Size() - 1),
+			cellY:    0,
 			expected: Dead,
 		},
 		{
 			name:     "first cell of the last row",
-			rowIdx:   byte(b.Size() - 1),
-			colIdx:   0,
+			cellX:    0,
+			cellY:    byte(b.Size() - 1),
 			expected: Empty,
 		},
 		{
 			name:     "last cell of the last row",
-			rowIdx:   byte(b.Size() - 1),
-			colIdx:   byte(b.Size() - 1),
+			cellX:    byte(b.Size() - 1),
+			cellY:    byte(b.Size() - 1),
 			expected: Empty,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			// 2. Act
-			got := b.GetCellType(tt.rowIdx, tt.colIdx)
+			got := b.GetCellType(tt.cellX, tt.cellY)
 
 			// 3. Assert
 			assert.Equal(t, tt.expected, got)

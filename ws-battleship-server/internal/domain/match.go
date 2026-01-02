@@ -26,19 +26,24 @@ type Match struct {
 	isClosed      bool
 	turningPlayer *domain.PlayerModel
 	gameModel     domain.GameModel
+
+	eventBus *events.EventBus
 }
 
 func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Match {
 	match := &Match{
-		ctx:     ctx,
-		closeCh: make(chan struct{}),
-		room:    NewRoom(ctx, &cfg.App, logger),
-		cfg:     cfg,
-		logger:  logger,
+		ctx:      ctx,
+		closeCh:  make(chan struct{}),
+		room:     NewRoom(ctx, &cfg.App, logger),
+		cfg:      cfg,
+		logger:   logger,
+		eventBus: events.NewEventBus(),
 	}
 
 	match.room.SetPlayerJoinedHandler(match.onPlayerJoinedHandler)
 	match.room.SetPlayerLeftHandler(match.onPlayerLeftHandler)
+	match.eventBus.Subscribe(events.SendMessageType, match.onPlayerSentMessageHandler)
+	match.eventBus.Subscribe(events.PlayerFireEventType, match.onPlayerFiredHandler)
 	return match
 }
 
@@ -186,6 +191,15 @@ func (m *Match) gameLoop(ctx context.Context) {
 				m.logger.Errorf("failed to give a turn to the next player: %s", err)
 			}
 			gameTurnTimer.Reset(m.cfg.Game.GameTurnTime)
+
+		case msg, opened := <-m.room.Events():
+			if !opened {
+				continue
+			}
+
+			if err := m.eventBus.Invoke(msg); err != nil {
+				m.logger.Errorf("error while invoking event: %s", err)
+			}
 		}
 	}
 }
@@ -227,5 +241,34 @@ func (m *Match) onPlayerLeftHandler(leftPlayer *Player) {
 	m.room.logger.Infof("player %s left the match id=%s [players: %d]", leftPlayer.String(), m.ID(), m.room.Capacity())
 	if err := m.room.SendChatNotification(fmt.Sprintf("Player '%s' left the game.", leftPlayer.Nickname())); err != nil {
 		m.logger.Error(err)
+	}
+}
+
+func (m *Match) onPlayerSentMessageHandler(e events.Event) error {
+	return m.room.Broadcast(e)
+}
+
+func (m *Match) onPlayerFiredHandler(e events.Event) error {
+	playerFiredEvent, err := events.CastTo[events.PlayerFireEvent](e)
+	if err != nil {
+		return err
+	}
+
+	m.fireAtCell(playerFiredEvent.CellX, playerFiredEvent.CellY)
+
+	m.room.SendChatNotification(fmt.Sprintf("Player '%s' fired at (%d, %d)!", playerFiredEvent.PlayerID, playerFiredEvent.CellX, playerFiredEvent.CellY))
+	m.logger.Infof("player id=%s fired at cell idx (%d, %d)", playerFiredEvent.PlayerID, playerFiredEvent.CellX, playerFiredEvent.CellY)
+
+	return m.allPlayersUpdate()
+}
+
+func (m *Match) fireAtCell(cellX, cellY byte) {
+	switch {
+	case m.gameModel.LeftPlayer.Board.IsCellEmpty(cellX, cellY):
+		m.gameModel.LeftPlayer.Board.SetCell(cellX, cellY, domain.Miss)
+	case m.gameModel.LeftPlayer.Board.GetCellType(cellX, cellY) == domain.Alive:
+		m.gameModel.LeftPlayer.Board.SetCell(cellX, cellY, domain.Dead)
+	default:
+		return
 	}
 }

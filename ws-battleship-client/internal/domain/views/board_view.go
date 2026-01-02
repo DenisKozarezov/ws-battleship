@@ -119,16 +119,16 @@ func (v *BoardView) SetSelectable(isSelectable bool) {
 	v.isSelectable = isSelectable
 }
 
-func (v *BoardView) SelectCell(rowIdx, colIdx int) {
-	v.cellY = math.Clamp(rowIdx, 0, v.board.Size()-1)
-	v.cellX = math.Clamp(colIdx, 0, v.board.Size()-1)
+func (v *BoardView) SelectCell(cellX, cellY int) {
+	v.cellX = math.Clamp(cellX, 0, v.board.Size()-1)
+	v.cellY = math.Clamp(cellY, 0, v.board.Size()-1)
 
 	v.selectedRowIdx = v.cellY
 
 	// String: a   b   c   d   e    f     g     h     j     k
 	// Index:  0   1   2   3   4    5     6     7     8     9
 	// Column: 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18
-	v.selectedColIdx = math.Clamp(colIdx*2, 0, len(v.alphabet)-1)
+	v.selectedColIdx = math.Clamp(cellX*2, 0, len(v.alphabet)-1)
 }
 
 func (v *BoardView) renderBoardRow(str string, currentRowIdx int) string {
@@ -143,7 +143,7 @@ func (v *BoardView) renderBoardRow(str string, currentRowIdx int) string {
 }
 
 func (v *BoardView) getCellHighlighStyle() lipgloss.Style {
-	if v.board.IsCellEmpty(byte(v.cellY), byte(v.cellX)) {
+	if v.board.IsCellEmpty(byte(v.cellX), byte(v.cellY)) {
 		return highlightAllowedCell
 	} else {
 		return highlightForbiddenCell
@@ -151,17 +151,17 @@ func (v *BoardView) getCellHighlighStyle() lipgloss.Style {
 }
 
 func (v *BoardView) selectionUp() {
-	v.SelectCell(v.cellY-1, v.cellX)
+	v.SelectCell(v.cellX, v.cellY-1)
 }
 
 func (v *BoardView) selectionDown() {
-	v.SelectCell(v.cellY+1, v.cellX)
+	v.SelectCell(v.cellX, v.cellY+1)
 }
 
 func (v *BoardView) selectionLeft() {
-	v.SelectCell(v.cellY, v.cellX-1)
+	v.SelectCell(v.cellX-1, v.cellY)
 }
 
 func (v *BoardView) selectionRight() {
-	v.SelectCell(v.cellY, v.cellX+1)
+	v.SelectCell(v.cellX+1, v.cellY)
 }

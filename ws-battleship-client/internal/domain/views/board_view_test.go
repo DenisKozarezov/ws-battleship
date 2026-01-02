@@ -229,7 +229,7 @@ func TestGetCellHighlightStyle(t *testing.T) {
 			}
 			view := NewBoardView()
 			view.board = board
-			view.SelectCell(0, tt.cellX)
+			view.SelectCell(tt.cellX, 0)
 
 			// 2. Act
 			got := view.getCellHighlighStyle()

@@ -152,6 +152,10 @@ func (r *Room) GetPlayers() []*Player {
 	return players
 }
 
+func (r *Room) Events() <-chan events.Event {
+	return r.messagesCh
+}
+
 func (r *Room) SetPlayerJoinedHandler(fn func(joinedPlayer *Player)) {
 	r.playerJoinedHandler = fn
 }
@@ -189,11 +193,6 @@ func (r *Room) handleConnections(ctx context.Context) {
 
 			if err := r.onPlayerLeftHandler(leftPlayer); err != nil {
 				r.logger.Error(err)
-			}
-
-		case msg, opened := <-r.messagesCh:
-			if opened {
-				r.handleEvent(msg)
 			}
 		}
 	}
@@ -270,16 +269,6 @@ func (r *Room) unregisterPlayer(player *Player) error {
 	return nil
 }
 
-func (r *Room) handleEvent(e events.Event) {
-	switch e.Type {
-	case events.SendMessageType:
-		if err := r.onPlayerSentMessageHandler(e); err != nil {
-			r.logger.Errorf("failed to send message to others players: %s", err)
-			return
-		}
-	}
-}
-
 func (r *Room) onPlayerJoinedHandler(joinedPlayer *Player) error {
 	if err := r.registerNewPlayer(joinedPlayer); err != nil {
 		return fmt.Errorf("failed to register new player: %s", err)
@@ -319,8 +308,4 @@ func (r *Room) onPlayerLeftHandler(leftPlayer *Player) error {
 	}
 
 	return nil
-}
-
-func (r *Room) onPlayerSentMessageHandler(e events.Event) error {
-	return r.Broadcast(e)
 }

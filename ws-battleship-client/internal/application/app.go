@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 	"ws-battleship-client/internal/config"
@@ -49,8 +48,9 @@ func NewApp(ctx context.Context, cfg *config.Config, logger logger.Logger) *App 
 	eventBus.Subscribe(events.GameStartEventType, a.onGameStartedHandler)
 	eventBus.Subscribe(events.PlayerUpdateStateEventType, a.onPlayerUpdateState)
 	eventBus.Subscribe(events.PlayerTurnEventType, a.onPlayerTurnHandler)
-	eventBus.Subscribe(events.SendMessageType, a.onPlayerSendMessage)
+	eventBus.Subscribe(events.SendMessageType, a.onPlayerSendMessageHandler)
 	eventBus.Subscribe(clientEvents.PlayerTypedMessageType, a.onPlayerTypedMessage)
+	a.gameView.SetPlayerFiredHandler(a.onPlayerPressedFireHandler)
 
 	return a
 }
@@ -106,7 +106,7 @@ func (a *App) handleConnection(ctx context.Context) {
 			}
 
 			if err := a.eventBus.Invoke(msg); err != nil {
-				a.logger.Errorf("error while invoking event bus: %s", err)
+				a.logger.Errorf("error while invoking event: %s", err)
 			}
 		}
 	}
@@ -143,54 +143,4 @@ func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 		a.logger.Fatalf("failed to run a game view: %s", err)
 	}
 	clearTerminal()
-}
-
-func (a *App) onPlayerTypedMessage(e events.Event) error {
-	e.Type = events.SendMessageType
-	return a.client.SendMessage(e)
-}
-
-func (a *App) onGameStartedHandler(e events.Event) error {
-	a.gameView.StartGame()
-	return nil
-}
-
-func (a *App) onPlayerUpdateState(e events.Event) error {
-	playerUpdateEvent, err := events.CastTo[events.PlayerUpdateStateEvent](e)
-	if err != nil {
-		return err
-	}
-
-	a.gameView.SetGameModel(playerUpdateEvent.GameModel)
-	return nil
-}
-
-func (a *App) onPlayerTurnHandler(e events.Event) error {
-	playerTurnEvent, err := events.CastTo[events.PlayerTurnEvent](e)
-	if err != nil {
-		return err
-	}
-
-	isLocalPlayer := a.metadata.ClientID == playerTurnEvent.Player.ID
-
-	return a.gameView.GiveTurnToPlayer(playerTurnEvent.Player, playerTurnEvent.RemainingTime, isLocalPlayer)
-}
-
-func (a *App) onPlayerSendMessage(e events.Event) error {
-	sendMessageEvent, err := events.CastTo[events.SendMessageEvent](e)
-	if err != nil {
-		return err
-	}
-
-	timestamp, err := time.Parse(events.TimestampFormat, e.Timestamp)
-	if err != nil {
-		return fmt.Errorf("failed to parse timestamp: %w", err)
-	}
-
-	return a.gameView.AppendMessageInChat(views.ChatMessage{
-		Sender:         sendMessageEvent.Sender,
-		Message:        sendMessageEvent.Message,
-		IsNotification: sendMessageEvent.IsNotification,
-		Timestamp:      timestamp,
-	})
 }

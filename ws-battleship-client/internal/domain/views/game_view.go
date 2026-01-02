@@ -37,6 +37,8 @@ type GameView struct {
 	turnTimerView  *TimerView
 	gameTickerView *TickerView
 	chatView       *ChatView
+
+	playerFiredHandler func(cellX, cellY byte)
 }
 
 func NewGameView(eventBus *events.EventBus, metadata domain.ClientMetadata) *GameView {
@@ -79,6 +81,10 @@ func (v *GameView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return v, tea.Quit
+		case tea.KeyEnter:
+			if v.isLocalPlayerTurn {
+				v.onPlayerFiredHandler()
+			}
 		}
 	}
 
@@ -158,6 +164,10 @@ func (v *GameView) AppendMessageInChat(msg ChatMessage) error {
 	return nil
 }
 
+func (v *GameView) SetPlayerFiredHandler(fn func(cellY, cellX byte)) {
+	v.playerFiredHandler = fn
+}
+
 func (v *GameView) renderPlayersBoards() string {
 	return lipgloss.JoinHorizontal(lipgloss.Center, v.leftBoard.View(), v.renderGameTurn(), v.rightBoard.View())
 }
@@ -176,5 +186,11 @@ func (v *GameView) renderGameTurn() string {
 		return lipgloss.PlaceHorizontal(30, lipgloss.Center, turn+"\n\n"+help)
 	} else {
 		return lipgloss.PlaceHorizontal(30, lipgloss.Center, turn)
+	}
+}
+
+func (v *GameView) onPlayerFiredHandler() {
+	if v.playerFiredHandler != nil && v.turningBoard != nil {
+		v.playerFiredHandler(byte(v.turningBoard.cellX), byte(v.turningBoard.cellY))
 	}
 }
