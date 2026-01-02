@@ -191,6 +191,6 @@ func (a *App) onPlayerSendMessage(e events.Event) error {
 		Sender:         sendMessageEvent.Sender,
 		Message:        sendMessageEvent.Message,
 		IsNotification: sendMessageEvent.IsNotification,
-		Timestamp:      timestamp.Format(time.TimeOnly),
+		Timestamp:      timestamp,
 	})
 }

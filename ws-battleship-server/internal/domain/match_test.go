@@ -130,3 +130,23 @@ func TestIsMatchReadyToStart(t *testing.T) {
 		require.False(t, got)
 	})
 }
+
+func TestMatchClose(t *testing.T) {
+	t.Run("idempotent close", func(t *testing.T) {
+		// 1. Arrange
+		loggerMock := new(logger.MockLogger)
+		loggerMock.On("Infof", mock.Anything, mock.Anything)
+
+		match := NewMatch(t.Context(), &config.Config{
+			App: config.AppConfig{
+				KeepAlivePeriod: time.Second * 5,
+				RoomCapacityMax: 5,
+			},
+		}, loggerMock)
+
+		// 2. Act
+		require.NoError(t, match.Close())
+		require.NoError(t, match.Close())
+		require.NoError(t, match.Close())
+	})
+}

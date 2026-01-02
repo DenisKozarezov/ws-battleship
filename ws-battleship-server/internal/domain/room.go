@@ -30,6 +30,7 @@ type Room struct {
 	logger logger.Logger
 
 	playerJoinedHandler func(joinedPlayer *Player)
+	playerLeftHandler   func(leftPlayer *Player)
 }
 
 func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *Room {
@@ -124,16 +125,12 @@ func (r *Room) Capacity() (capacity int) {
 	return
 }
 
-func (r *Room) SendChatNotification(msg string) {
+func (r *Room) SendChatNotification(msg string) error {
 	event, err := events.NewChatNotificationEvent(msg)
 	if err != nil {
-		r.logger.Errorf("couldn't send a chat notification: %s", err)
-		return
+		return fmt.Errorf("couldn't send a chat notification: %w", err)
 	}
-
-	if err = r.Broadcast(event); err != nil {
-		r.logger.Error(err)
-	}
+	return r.Broadcast(event)
 }
 
 func (r *Room) Broadcast(e events.Event) error {
@@ -159,6 +156,10 @@ func (r *Room) SetPlayerJoinedHandler(fn func(joinedPlayer *Player)) {
 	r.playerJoinedHandler = fn
 }
 
+func (r *Room) SetPlayerLeftHandler(fn func(leftPlayer *Player)) {
+	r.playerLeftHandler = fn
+}
+
 func (r *Room) handleConnections(ctx context.Context) {
 	for {
 		if err := ctx.Err(); err != nil {
@@ -173,13 +174,21 @@ func (r *Room) handleConnections(ctx context.Context) {
 			return
 
 		case joinedPlayer, opened := <-r.joinCh:
-			if opened {
-				r.onPlayerJoinedHandler(joinedPlayer)
+			if !opened {
+				return
+			}
+
+			if err := r.onPlayerJoinedHandler(joinedPlayer); err != nil {
+				r.logger.Error(err)
 			}
 
 		case leftPlayer, opened := <-r.leaveCh:
-			if opened {
-				r.onPlayerLeftHandler(leftPlayer)
+			if !opened {
+				return
+			}
+
+			if err := r.onPlayerLeftHandler(leftPlayer); err != nil {
+				r.logger.Error(err)
 			}
 
 		case msg, opened := <-r.messagesCh:
@@ -285,9 +294,6 @@ func (r *Room) onPlayerJoinedHandler(joinedPlayer *Player) error {
 		return err
 	}
 
-	r.SendChatNotification(fmt.Sprintf("Player '%s' joined the room.", joinedPlayer.Nickname()))
-	r.logger.Infof("player %s joined the room id=%s [players: %d]", joinedPlayer.String(), r.ID(), r.Capacity())
-
 	if r.playerJoinedHandler != nil {
 		r.playerJoinedHandler(joinedPlayer)
 	}
@@ -308,8 +314,9 @@ func (r *Room) onPlayerLeftHandler(leftPlayer *Player) error {
 		return err
 	}
 
-	r.SendChatNotification(fmt.Sprintf("Player '%s' left the room.", leftPlayer.Nickname()))
-	r.logger.Infof("player %s left the room id=%s [players: %d]", leftPlayer.String(), r.ID(), r.Capacity())
+	if r.playerLeftHandler != nil {
+		r.playerLeftHandler(leftPlayer)
+	}
 
 	return nil
 }

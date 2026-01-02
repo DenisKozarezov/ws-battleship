@@ -2,6 +2,7 @@ package views
 
 import (
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -102,19 +103,11 @@ type ChatMessage struct {
 	Sender         string
 	Message        string
 	IsNotification bool
-	Timestamp      string
+	Timestamp      time.Time
 }
 
 func (v *ChatView) AppendMessage(msg ChatMessage) {
-	var newMessage string
-
-	if msg.IsNotification {
-		newMessage = lipgloss.PlaceHorizontal(chatWidth, lipgloss.Center, notificationStyle.Render(" "+msg.Timestamp+" "+msg.Message+" "))
-	} else {
-		newMessage = senderStyle.Render(msg.Timestamp+" "+msg.Sender+": ") + msg.Message
-	}
-
-	v.setContent(append(v.content, newMessage))
+	v.setContent(append(v.content, formatChatMessage(msg)))
 	v.viewport.GotoBottom()
 }
 
@@ -124,6 +117,16 @@ func (v *ChatView) Clear() {
 
 func (v *ChatView) SetMessageTypedHandler(fn func(string)) {
 	v.messageTypedHandler = fn
+}
+
+func formatChatMessage(msg ChatMessage) string {
+	timestamp := msg.Timestamp.Format(time.TimeOnly)
+
+	if msg.IsNotification {
+		return lipgloss.PlaceHorizontal(chatWidth, lipgloss.Center, notificationStyle.Render(" "+timestamp+" "+msg.Message+" "))
+	} else {
+		return senderStyle.Render(timestamp+" "+msg.Sender+": ") + msg.Message
+	}
 }
 
 func (v *ChatView) setContent(content []string) {

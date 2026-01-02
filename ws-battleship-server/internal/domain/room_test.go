@@ -155,6 +155,34 @@ func TestCloseRoom(t *testing.T) {
 		require.NoError(t, err)
 		require.Zerof(t, room.Capacity(), "there should be no players after close")
 	})
+
+	t.Run("idempotent close", func(t *testing.T) {
+		// 1. Arrange
+		mockClient := new(MockClient)
+		mockClient.On("Close").Return(nil)
+		mockClient.On("ID").Return("123")
+		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
+		mockClient.On("WriteMessages", mock.Anything).Return()
+
+		loggerMock := new(logger.MockLogger)
+		loggerMock.On("Infof", mock.Anything, mock.Anything)
+
+		room := NewRoom(t.Context(), &config.AppConfig{
+			RoomCapacityMax: 5,
+			KeepAlivePeriod: time.Second * 5,
+		}, loggerMock)
+
+		err := room.registerNewPlayer(NewPlayer(mockClient, domain.ClientMetadata{}))
+		require.NoError(t, err)
+
+		// 2. Act
+		require.NoError(t, room.Close())
+		require.NoError(t, room.Close())
+		require.NoError(t, room.Close())
+
+		// 3. Assert
+		require.Zerof(t, room.Capacity(), "there should be no players after close")
+	})
 }
 
 func TestRegisterNewPlayer(t *testing.T) {

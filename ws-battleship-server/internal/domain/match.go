@@ -38,6 +38,7 @@ func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Ma
 	}
 
 	match.room.SetPlayerJoinedHandler(match.onPlayerJoinedHandler)
+	match.room.SetPlayerLeftHandler(match.onPlayerLeftHandler)
 	return match
 }
 
@@ -111,14 +112,13 @@ func (m *Match) StartMatch() error {
 		return err
 	}
 
-	m.room.SendChatNotification("Game started!")
-
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
 		m.gameLoop(m.ctx)
 	}()
-	return nil
+
+	return m.room.SendChatNotification("Game started!")
 }
 
 func (m *Match) GiveTurnToNextPlayer() error {
@@ -149,8 +149,7 @@ func (m *Match) GiveTurnToPlayer(turningPlayer *domain.PlayerModel) error {
 		return err
 	}
 
-	m.room.SendChatNotification(fmt.Sprintf("Player '%s' turns now.", m.turningPlayer.Nickname))
-	return nil
+	return m.room.SendChatNotification(fmt.Sprintf("Player '%s' turns now.", m.turningPlayer.Nickname))
 }
 
 func (m *Match) getRandomPlayer() *domain.PlayerModel {
@@ -210,11 +209,23 @@ func (m *Match) onPlayerJoinedHandler(joinedPlayer *Player) {
 		m.logger.Errorf("failed to update players: %s", err)
 	}
 
+	if err := m.room.SendChatNotification(fmt.Sprintf("Player '%s' joined the game.", joinedPlayer.Nickname())); err != nil {
+		m.logger.Error(err)
+	}
+	m.room.logger.Infof("player %s joined the match id=%s [players: %d]", joinedPlayer.String(), m.ID(), m.room.Capacity())
+
 	if !m.IsReadyToStart() {
 		return
 	}
 
 	if err := m.StartMatch(); err != nil {
 		m.logger.Errorf("failed to start match id=%s: %s", m.ID(), err)
+	}
+}
+
+func (m *Match) onPlayerLeftHandler(leftPlayer *Player) {
+	m.room.logger.Infof("player %s left the match id=%s [players: %d]", leftPlayer.String(), m.ID(), m.room.Capacity())
+	if err := m.room.SendChatNotification(fmt.Sprintf("Player '%s' left the game.", leftPlayer.Nickname())); err != nil {
+		m.logger.Error(err)
 	}
 }

@@ -47,7 +47,7 @@ func NewGameView(eventBus *events.EventBus, metadata domain.ClientMetadata) *Gam
 		// That's why we need something only for internal usage, that won't be sended to server.
 		// Consider this as internal events for local machine.
 		event, _ := clientEvents.NewPlayerTypedMessageEvent(metadata.Nickname, msg)
-		eventBus.Invoke(event)
+		_ = eventBus.Invoke(event)
 	})
 
 	return &GameView{
