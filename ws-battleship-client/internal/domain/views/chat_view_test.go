@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"ws-battleship-shared/events"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/require"
@@ -83,6 +84,7 @@ func TestFormatChatMessage(t *testing.T) {
 		got := formatChatMessage(ChatMessage{
 			Sender:    "Nickname",
 			Message:   "some message",
+			Type:      events.MessageType,
 			Timestamp: now,
 		})
 
@@ -90,15 +92,30 @@ func TestFormatChatMessage(t *testing.T) {
 		require.Equal(t, "15:00:35 Nickname: some message", got)
 	})
 
-	t.Run("append a notification message", func(t *testing.T) {
+	t.Run("append a room notification message", func(t *testing.T) {
 		// 1. Arrange
 		now := time.Date(2025, 1, 1, 15, 0, 35, 0, time.UTC) // 2025-01-01 15:00:35 UTC+0
 
 		// 2. Act
 		got := formatChatMessage(ChatMessage{
-			Message:        "some message",
-			Timestamp:      now,
-			IsNotification: true,
+			Message:   "some message",
+			Timestamp: now,
+			Type:      events.RoomNotificationType,
+		})
+
+		// 3. Assert
+		require.Equal(t, "15:00:35 some message", strings.TrimSpace(got))
+	})
+
+	t.Run("append a game notification message", func(t *testing.T) {
+		// 1. Arrange
+		now := time.Date(2025, 1, 1, 15, 0, 35, 0, time.UTC) // 2025-01-01 15:00:35 UTC+0
+
+		// 2. Act
+		got := formatChatMessage(ChatMessage{
+			Message:   "some message",
+			Timestamp: now,
+			Type:      events.GameNotificationType,
 		})
 
 		// 3. Assert

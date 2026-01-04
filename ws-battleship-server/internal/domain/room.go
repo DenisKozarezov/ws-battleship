@@ -125,8 +125,8 @@ func (r *Room) Capacity() (capacity int) {
 	return
 }
 
-func (r *Room) SendChatNotification(msg string) error {
-	event, err := events.NewChatNotificationEvent(msg)
+func (r *Room) SendNotification(msg string, notificationType events.ChatMessageType) error {
+	event, err := events.NewChatNotificationEvent(msg, notificationType)
 	if err != nil {
 		return fmt.Errorf("couldn't send a chat notification: %w", err)
 	}

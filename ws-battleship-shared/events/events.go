@@ -85,16 +85,18 @@ func NewPlayerTurnEvent(player *domain.PlayerModel, remainingTime time.Duration)
 }
 
 type PlayerFireEvent struct {
-	PlayerID domain.ClientID `json:"player_id"`
-	CellX    byte            `json:"cell_x"`
-	CellY    byte            `json:"cell_y"`
+	PlayerID       domain.ClientID `json:"player_id"`
+	PlayerNickname string          `json:"nickname"`
+	CellX          byte            `json:"cell_x"`
+	CellY          byte            `json:"cell_y"`
 }
 
-func NewPlayerFireEvent(playerID domain.ClientID, cellX, cellY byte) (Event, error) {
+func NewPlayerFireEvent(metadata domain.ClientMetadata, cellX, cellY byte) (Event, error) {
 	return NewEvent(PlayerFireEventType, PlayerFireEvent{
-		PlayerID: playerID,
-		CellX:    cellX,
-		CellY:    cellY,
+		PlayerID:       metadata.ClientID,
+		PlayerNickname: metadata.Nickname,
+		CellX:          cellX,
+		CellY:          cellY,
 	})
 }
 
@@ -108,23 +110,32 @@ func NewGameStartEvent(gameModel *domain.GameModel) (Event, error) {
 	})
 }
 
+type ChatMessageType = string
+
+const (
+	MessageType          = "message"
+	GameNotificationType = "game_notification"
+	RoomNotificationType = "room_notification"
+)
+
 type SendMessageEvent struct {
-	Sender         string `json:"sender,omitzero"`
-	Message        string `json:"message"`
-	IsNotification bool   `json:"is_notify,omitzero"`
+	Sender  string          `json:"sender,omitzero"`
+	Message string          `json:"message"`
+	Type    ChatMessageType `json:"type"`
 }
 
-func NewSendMessageEvent(sender string, message string) (Event, error) {
+func NewSendMessageEvent(sender string, msg string) (Event, error) {
 	return NewEvent(SendMessageType, SendMessageEvent{
 		Sender:  sender,
-		Message: message,
+		Message: msg,
+		Type:    MessageType,
 	})
 }
 
-func NewChatNotificationEvent(message string) (Event, error) {
+func NewChatNotificationEvent(msg string, msgType ChatMessageType) (Event, error) {
 	return NewEvent(SendMessageType, SendMessageEvent{
-		Message:        message,
-		IsNotification: true,
+		Message: msg,
+		Type:    msgType,
 	})
 }
 

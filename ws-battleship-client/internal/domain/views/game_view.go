@@ -190,7 +190,14 @@ func (v *GameView) renderGameTurn() string {
 }
 
 func (v *GameView) onPlayerFiredHandler() {
-	if v.playerFiredHandler != nil && v.turningBoard != nil {
+	v.isLocalPlayerTurn = false
+
+	if v.turningBoard == nil {
+		return
+	}
+	v.turningBoard.SetSelectable(false)
+
+	if v.playerFiredHandler != nil {
 		v.playerFiredHandler(byte(v.turningBoard.cellX), byte(v.turningBoard.cellY))
 	}
 }

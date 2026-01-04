@@ -3,6 +3,7 @@ package views
 import (
 	"strings"
 	"time"
+	"ws-battleship-shared/events"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -20,9 +21,11 @@ var (
 			Width(chatWidth).Height(chatHeight).
 			Border(lipgloss.RoundedBorder())
 
-	senderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	playerMessageStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 
-	notificationStyle = lipgloss.NewStyle().
+	gameNotificationStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#E8C184"))
+
+	roomNotificationStyle = lipgloss.NewStyle().
 				Align(lipgloss.Center).
 				Background(lipgloss.Color("6")).
 				Foreground(lipgloss.Color("#ffffff")).
@@ -100,10 +103,10 @@ func (v *ChatView) View() string {
 }
 
 type ChatMessage struct {
-	Sender         string
-	Message        string
-	IsNotification bool
-	Timestamp      time.Time
+	Sender    string
+	Message   string
+	Type      events.ChatMessageType
+	Timestamp time.Time
 }
 
 func (v *ChatView) AppendMessage(msg ChatMessage) {
@@ -122,11 +125,17 @@ func (v *ChatView) SetMessageTypedHandler(fn func(string)) {
 func formatChatMessage(msg ChatMessage) string {
 	timestamp := msg.Timestamp.Format(time.TimeOnly)
 
-	if msg.IsNotification {
-		return lipgloss.PlaceHorizontal(chatWidth, lipgloss.Center, notificationStyle.Render(" "+timestamp+" "+msg.Message+" "))
-	} else {
-		return senderStyle.Render(timestamp+" "+msg.Sender+": ") + msg.Message
+	switch msg.Type {
+	case events.MessageType:
+		return timestamp + " " + playerMessageStyle.Render(msg.Sender) + ": " + msg.Message
+
+	case events.GameNotificationType:
+		return timestamp + " " + gameNotificationStyle.Render(msg.Message)
+
+	case events.RoomNotificationType:
+		return lipgloss.PlaceHorizontal(chatWidth, lipgloss.Center, roomNotificationStyle.Render(" ", timestamp, msg.Message, " "))
 	}
+	return ""
 }
 
 func (v *ChatView) setContent(content []string) {

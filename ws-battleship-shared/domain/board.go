@@ -1,6 +1,9 @@
 package domain
 
-import "bytes"
+import (
+	"bytes"
+	"fmt"
+)
 
 const (
 	boardAlphabet = "abcdefghij"
@@ -20,7 +23,7 @@ type Cell = rune
 
 type Board [len(boardAlphabet)][len(boardAlphabet)]Cell
 
-func (b Board) IsCellDead(cellX, cellY byte) bool {
+func (b *Board) IsCellDead(cellX, cellY byte) bool {
 	cellType := b.GetCellType(cellX, cellY)
 	if cellType == Null {
 		return false
@@ -28,7 +31,7 @@ func (b Board) IsCellDead(cellX, cellY byte) bool {
 	return cellType == Dead
 }
 
-func (b Board) IsCellEmpty(cellX, cellY byte) bool {
+func (b *Board) IsCellEmpty(cellX, cellY byte) bool {
 	cellType := b.GetCellType(cellX, cellY)
 	if cellType == Null {
 		return true
@@ -36,28 +39,35 @@ func (b Board) IsCellEmpty(cellX, cellY byte) bool {
 	return cellType == Empty
 }
 
-func (b Board) GetCellType(cellX, cellY byte) CellType {
+func (b *Board) GetCellType(cellX, cellY byte) CellType {
 	if b.checkBounds(cellX, cellY) {
 		return b[cellY][cellX]
 	}
 	return Null
 }
 
-func (b Board) SetCell(cellX, cellY byte, cellType CellType) {
+func (b *Board) SetCell(cellX, cellY byte, cellType CellType) {
 	if b.checkBounds(cellX, cellY) {
 		b[cellY][cellX] = cellType
 	}
 }
 
-func (b Board) Size() int {
+func (b *Board) CellString(cellX, cellY byte) string {
+	if b.checkBounds(cellX, cellY) {
+		return fmt.Sprintf("%c%d", boardAlphabet[cellX], cellY+1)
+	}
+	return ""
+}
+
+func (b *Board) Size() int {
 	return len(b)
 }
 
-func (b Board) Alphabet() []rune {
+func (b *Board) Alphabet() []rune {
 	return []rune(boardAlphabet)
 }
 
-func (b Board) Lines() []string {
+func (b *Board) Lines() []string {
 	result := make([]string, b.Size())
 
 	for i := 0; i < b.Size(); i++ {
@@ -66,7 +76,7 @@ func (b Board) Lines() []string {
 	return result
 }
 
-func (b Board) MarshalBinary() ([]byte, error) {
+func (b *Board) MarshalBinary() ([]byte, error) {
 	buf := new(bytes.Buffer)
 	buf.Grow(b.Size() * 2)
 
@@ -80,7 +90,7 @@ func (b Board) MarshalBinary() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (b Board) UnmarshalBinary(buf []byte) error {
+func (b *Board) UnmarshalBinary(buf []byte) error {
 	buffer := bytes.NewBuffer(buf)
 
 	var board Board
@@ -96,11 +106,11 @@ func (b Board) UnmarshalBinary(buf []byte) error {
 	return nil
 }
 
-func (b Board) checkBounds(cellX, cellY byte) bool {
+func (b *Board) checkBounds(cellX, cellY byte) bool {
 	return cellX < byte(b.Size()) && cellY < byte(b.Size())
 }
 
-func (b Board) renderRow(rowIdx int) string {
+func (b *Board) renderRow(rowIdx int) string {
 	if rowIdx >= b.Size() {
 		return ""
 	}

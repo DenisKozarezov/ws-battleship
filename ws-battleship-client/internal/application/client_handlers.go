@@ -8,7 +8,7 @@ func (a *App) onPlayerTypedMessage(e events.Event) error {
 }
 
 func (a *App) onPlayerPressedFireHandler(cellX, cellY byte) {
-	event, _ := events.NewPlayerFireEvent(a.metadata.ClientID, cellX, cellY)
+	event, _ := events.NewPlayerFireEvent(a.metadata, cellX, cellY)
 	if err := a.client.SendMessage(event); err != nil {
 		a.logger.Errorf("failed to send a message: %s", err)
 	}

@@ -45,9 +45,9 @@ func (a *App) onPlayerSendMessageHandler(e events.Event) error {
 	}
 
 	return a.gameView.AppendMessageInChat(views.ChatMessage{
-		Sender:         sendMessageEvent.Sender,
-		Message:        sendMessageEvent.Message,
-		IsNotification: sendMessageEvent.IsNotification,
-		Timestamp:      timestamp,
+		Sender:    sendMessageEvent.Sender,
+		Message:   sendMessageEvent.Message,
+		Type:      sendMessageEvent.Type,
+		Timestamp: timestamp,
 	})
 }

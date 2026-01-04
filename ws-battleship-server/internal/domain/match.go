@@ -2,8 +2,10 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 	"ws-battleship-server/internal/config"
@@ -123,7 +125,7 @@ func (m *Match) StartMatch() error {
 		m.gameLoop(m.ctx)
 	}()
 
-	return m.room.SendChatNotification("Game started!")
+	return m.room.SendNotification("Game started!", events.RoomNotificationType)
 }
 
 func (m *Match) GiveTurnToNextPlayer() error {
@@ -154,7 +156,7 @@ func (m *Match) GiveTurnToPlayer(turningPlayer *domain.PlayerModel) error {
 		return err
 	}
 
-	return m.room.SendChatNotification(fmt.Sprintf("Player '%s' turns now.", m.turningPlayer.Nickname))
+	return m.room.SendNotification(fmt.Sprintf("Player '%s' turns now.", m.turningPlayer.Nickname), events.GameNotificationType)
 }
 
 func (m *Match) getRandomPlayer() *domain.PlayerModel {
@@ -223,7 +225,7 @@ func (m *Match) onPlayerJoinedHandler(joinedPlayer *Player) {
 		m.logger.Errorf("failed to update players: %s", err)
 	}
 
-	if err := m.room.SendChatNotification(fmt.Sprintf("Player '%s' joined the game.", joinedPlayer.Nickname())); err != nil {
+	if err := m.room.SendNotification(fmt.Sprintf("Player '%s' joined the game.", joinedPlayer.Nickname()), events.RoomNotificationType); err != nil {
 		m.logger.Error(err)
 	}
 	m.room.logger.Infof("player %s joined the match id=%s [players: %d]", joinedPlayer.String(), m.ID(), m.room.Capacity())
@@ -239,7 +241,7 @@ func (m *Match) onPlayerJoinedHandler(joinedPlayer *Player) {
 
 func (m *Match) onPlayerLeftHandler(leftPlayer *Player) {
 	m.room.logger.Infof("player %s left the match id=%s [players: %d]", leftPlayer.String(), m.ID(), m.room.Capacity())
-	if err := m.room.SendChatNotification(fmt.Sprintf("Player '%s' left the game.", leftPlayer.Nickname())); err != nil {
+	if err := m.room.SendNotification(fmt.Sprintf("Player '%s' left the game.", leftPlayer.Nickname()), events.RoomNotificationType); err != nil {
 		m.logger.Error(err)
 	}
 }
@@ -254,21 +256,44 @@ func (m *Match) onPlayerFiredHandler(e events.Event) error {
 		return err
 	}
 
-	m.fireAtCell(playerFiredEvent.CellX, playerFiredEvent.CellY)
+	if m.turningPlayer.ID != playerFiredEvent.PlayerID {
+		return ErrNotYourTurn
+	}
 
-	m.room.SendChatNotification(fmt.Sprintf("Player '%s' fired at (%d, %d)!", playerFiredEvent.PlayerID, playerFiredEvent.CellX, playerFiredEvent.CellY))
-	m.logger.Infof("player id=%s fired at cell idx (%d, %d)", playerFiredEvent.PlayerID, playerFiredEvent.CellX, playerFiredEvent.CellY)
+	var targetBoard *domain.Board
+	if m.gameModel.LeftPlayer.ID == m.turningPlayer.ID {
+		targetBoard = &m.gameModel.RightPlayer.Board
+	} else {
+		targetBoard = &m.gameModel.LeftPlayer.Board
+	}
+
+	if err := m.fireAtCell(targetBoard, playerFiredEvent.CellX, playerFiredEvent.CellY); err != nil {
+		return err
+	}
+
+	cellStr := strings.ToUpper(targetBoard.CellString(playerFiredEvent.CellX, playerFiredEvent.CellY))
+	m.room.SendNotification(fmt.Sprintf("Player '%s' fired at (%s)!", playerFiredEvent.PlayerNickname, cellStr), events.GameNotificationType)
+	m.logger.Infof("player id=%s fired at cell (%s)", playerFiredEvent.PlayerID, cellStr)
 
 	return m.allPlayersUpdate()
 }
 
-func (m *Match) fireAtCell(cellX, cellY byte) {
+var (
+	ErrInvalidTarget = errors.New("invalid target")
+	ErrNotYourTurn   = errors.New("this player doesn't have permission to fire")
+)
+
+func (m *Match) fireAtCell(board *domain.Board, cellX, cellY byte) error {
 	switch {
-	case m.gameModel.LeftPlayer.Board.IsCellEmpty(cellX, cellY):
-		m.gameModel.LeftPlayer.Board.SetCell(cellX, cellY, domain.Miss)
-	case m.gameModel.LeftPlayer.Board.GetCellType(cellX, cellY) == domain.Alive:
-		m.gameModel.LeftPlayer.Board.SetCell(cellX, cellY, domain.Dead)
+	case board.IsCellEmpty(cellX, cellY):
+		board.SetCell(cellX, cellY, domain.Miss)
+		return nil
+
+	case board.GetCellType(cellX, cellY) == domain.Alive:
+		board.SetCell(cellX, cellY, domain.Dead)
+		return nil
+
 	default:
-		return
+		return ErrInvalidTarget
 	}
 }
