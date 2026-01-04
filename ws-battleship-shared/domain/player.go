@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"math/rand"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -20,27 +19,12 @@ func (m *PlayerModel) Equal(rhs *PlayerModel) bool {
 	return m.ID == rhs.ID
 }
 
-func NewPlayerModel(metadata ClientMetadata) *PlayerModel {
+func NewPlayerModel(board Board, metadata ClientMetadata) *PlayerModel {
 	return &PlayerModel{
-		Board:    shuffleBoard(),
+		Board:    board,
 		ID:       metadata.ClientID,
 		Nickname: metadata.Nickname,
 	}
-}
-
-func shuffleBoard() Board {
-	var b Board
-
-	cells := []CellType{Empty, Dead, Alive, Miss}
-
-	for i := 0; i < b.Size(); i++ {
-		for j := 0; j < b.Size(); j++ {
-			r := rand.Intn(len(cells))
-			b[i][j] = cells[r]
-		}
-	}
-
-	return b
 }
 
 type ClientID = string

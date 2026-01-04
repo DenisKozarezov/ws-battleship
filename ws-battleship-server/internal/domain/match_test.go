@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 	"ws-battleship-server/internal/config"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/pkg/logger"
 
 	mock "github.com/stretchr/testify/mock"
@@ -148,5 +149,72 @@ func TestMatchClose(t *testing.T) {
 		require.NoError(t, match.Close())
 		require.NoError(t, match.Close())
 		require.NoError(t, match.Close())
+	})
+}
+
+func TestFireAtCell(t *testing.T) {
+	for _, tt := range []struct {
+		name         string
+		board        domain.Board
+		cellX        byte
+		cellY        byte
+		expectedType domain.CellType
+	}{
+		{
+			name: "fire at empty cell, expecting miss",
+			board: domain.Board{
+				{domain.Empty},
+			},
+			cellX:        0,
+			cellY:        0,
+			expectedType: domain.Miss,
+		},
+		{
+			name: "fire at non-initialized cell, also expecting miss",
+			board: domain.Board{
+				{},
+			},
+			cellX:        0,
+			cellY:        0,
+			expectedType: domain.Miss,
+		},
+		{
+			name: "fire at alive cell, expecting dead",
+			board: domain.Board{
+				{domain.Alive},
+			},
+			cellX:        0,
+			cellY:        0,
+			expectedType: domain.Dead,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			// 1. Arrange
+			match := Match{targetPlayer: domain.NewPlayerModel(tt.board, domain.ClientMetadata{})}
+
+			// 2. Act
+			err := match.fireAtCell(tt.cellX, tt.cellY)
+
+			// 3. Assert
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedType, match.targetPlayer.Board.GetCellType(tt.cellX, tt.cellY))
+		})
+	}
+}
+
+func TestFireAtInvalidTarget(t *testing.T) {
+	t.Run("fire at dead cell", func(t *testing.T) {
+		// 1. Arrange
+		board := domain.Board{
+			{domain.Dead},
+		}
+
+		match := Match{targetPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{})}
+
+		// 2. Act
+		err := match.fireAtCell(0, 0)
+
+		// 3. Assert
+		require.ErrorIsf(t, err, ErrInvalidTarget, "expected error invalid target")
 	})
 }

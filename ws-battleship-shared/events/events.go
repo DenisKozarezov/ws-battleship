@@ -73,13 +73,15 @@ func NewPlayerLeftEvent(leftPlayer *domain.PlayerModel) (Event, error) {
 }
 
 type PlayerTurnEvent struct {
-	Player        *domain.PlayerModel `json:"current_player"`
+	TurningPlayer *domain.PlayerModel `json:"turning_player"`
+	TargetPlayer  *domain.PlayerModel `json:"target_player"`
 	RemainingTime time.Duration       `json:"remaining_time"`
 }
 
-func NewPlayerTurnEvent(player *domain.PlayerModel, remainingTime time.Duration) (Event, error) {
+func NewPlayerTurnEvent(turningPlayer, targetPlayer *domain.PlayerModel, remainingTime time.Duration) (Event, error) {
 	return NewEvent(PlayerTurnEventType, PlayerTurnEvent{
-		Player:        player,
+		TurningPlayer: turningPlayer,
+		TargetPlayer:  targetPlayer,
 		RemainingTime: remainingTime,
 	})
 }

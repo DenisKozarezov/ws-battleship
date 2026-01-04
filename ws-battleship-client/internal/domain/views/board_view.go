@@ -131,6 +131,10 @@ func (v *BoardView) SelectCell(cellX, cellY int) {
 	v.selectedColIdx = math.Clamp(cellX*2, 0, len(v.alphabet)-1)
 }
 
+func (v *BoardView) IsAllowedToFire() bool {
+	return v.board.IsCellEmpty(byte(v.cellX), byte(v.cellY)) || v.board.GetCellType(byte(v.cellX), byte(v.cellY)) == domain.Alive
+}
+
 func (v *BoardView) renderBoardRow(str string, currentRowIdx int) string {
 	if !v.isSelectable {
 		return str
@@ -143,7 +147,7 @@ func (v *BoardView) renderBoardRow(str string, currentRowIdx int) string {
 }
 
 func (v *BoardView) getCellHighlighStyle() lipgloss.Style {
-	if v.board.IsCellEmpty(byte(v.cellX), byte(v.cellY)) {
+	if v.IsAllowedToFire() {
 		return highlightAllowedCell
 	} else {
 		return highlightForbiddenCell

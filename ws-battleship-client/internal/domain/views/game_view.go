@@ -2,7 +2,6 @@ package views
 
 import (
 	"fmt"
-	"time"
 	clientEvents "ws-battleship-client/internal/domain/events"
 	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
@@ -29,10 +28,10 @@ type View interface {
 type GameView struct {
 	isLocalPlayerTurn bool
 
-	boards       map[string]*BoardView
-	leftBoard    *BoardView
-	rightBoard   *BoardView
-	turningBoard *BoardView
+	boards      map[string]*BoardView
+	leftBoard   *BoardView
+	rightBoard  *BoardView
+	targetBoard *BoardView
 
 	turnTimerView  *TimerView
 	gameTickerView *TickerView
@@ -64,7 +63,7 @@ func NewGameView(eventBus *events.EventBus, metadata domain.ClientMetadata) *Gam
 
 func (v *GameView) Init() tea.Cmd {
 	v.turnTimerView.SetExpireCallback(func() {
-		v.turningBoard.SetSelectable(false)
+		v.targetBoard.SetSelectable(false)
 	})
 
 	return tea.Batch(v.leftBoard.Init(),
@@ -89,10 +88,7 @@ func (v *GameView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	var cmds []tea.Cmd
-	_, cmd := v.leftBoard.Update(msg)
-	cmds = append(cmds, cmd)
-
-	_, cmd = v.rightBoard.Update(msg)
+	_, cmd := v.targetBoard.Update(msg)
 	cmds = append(cmds, cmd)
 
 	_, cmd = v.chatView.Update(msg)
@@ -138,23 +134,23 @@ func (v *GameView) SetGameModel(gameModel *domain.GameModel) {
 	}
 }
 
-func (v *GameView) GiveTurnToPlayer(turningPlayer *domain.PlayerModel, remainingTime time.Duration, isLocalPlayer bool) error {
+func (v *GameView) GiveTurnToPlayer(event events.PlayerTurnEvent, isLocalPlayer bool) error {
 	v.isLocalPlayerTurn = isLocalPlayer
 
-	if v.turningBoard != nil {
-		v.turningBoard.SetSelectable(false)
+	if v.targetBoard != nil {
+		v.targetBoard.SetSelectable(false)
 	}
 
 	var found bool
-	if v.turningBoard, found = v.boards[turningPlayer.ID]; !found {
+	if v.targetBoard, found = v.boards[event.TargetPlayer.ID]; !found {
 		return fmt.Errorf("player not found")
 	}
 
 	if isLocalPlayer {
-		v.turningBoard.SetSelectable(true)
+		v.targetBoard.SetSelectable(true)
 	}
 
-	v.turnTimerView.Reset(int(remainingTime.Seconds()))
+	v.turnTimerView.Reset(int(event.RemainingTime.Seconds()))
 	v.turnTimerView.Start()
 	return nil
 }
@@ -190,14 +186,14 @@ func (v *GameView) renderGameTurn() string {
 }
 
 func (v *GameView) onPlayerFiredHandler() {
-	v.isLocalPlayerTurn = false
-
-	if v.turningBoard == nil {
+	if v.targetBoard == nil || !v.targetBoard.IsAllowedToFire() {
 		return
 	}
-	v.turningBoard.SetSelectable(false)
+
+	v.isLocalPlayerTurn = false
+	v.targetBoard.SetSelectable(false)
 
 	if v.playerFiredHandler != nil {
-		v.playerFiredHandler(byte(v.turningBoard.cellX), byte(v.turningBoard.cellY))
+		v.playerFiredHandler(byte(v.targetBoard.cellX), byte(v.targetBoard.cellY))
 	}
 }

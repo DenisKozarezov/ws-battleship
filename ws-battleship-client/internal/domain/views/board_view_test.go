@@ -5,7 +5,6 @@ import (
 	"ws-battleship-shared/domain"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/require"
 )
 
@@ -183,56 +182,54 @@ func TestSelectCell(t *testing.T) {
 	}
 }
 
-func TestGetCellHighlightStyle(t *testing.T) {
+func TestIsAllowedToFire(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
 		cellX    int
-		expected lipgloss.Style
+		expected bool
 	}{
 		{
-			name:     "missed cell is not empty, not allowed to strike",
+			name:     "missed cell, not allowed to strike",
 			cellX:    0,
-			expected: highlightForbiddenCell,
+			expected: false,
 		},
 		{
-			name:     "alive cell is not empty, not allowed to strike",
+			name:     "alive cell, allowed to strike",
 			cellX:    1,
-			expected: highlightForbiddenCell,
+			expected: true,
 		},
 		{
-			name:     "dead cell is not empty, not allowed to strike",
+			name:     "dead cell, not allowed to strike",
 			cellX:    2,
-			expected: highlightForbiddenCell,
+			expected: false,
 		},
 		{
 			name:     "empty cell, allowed to strike",
 			cellX:    3,
-			expected: highlightAllowedCell,
+			expected: true,
 		},
 		{
 			name:     "not initialized cell, allowed to strike",
 			cellX:    4,
-			expected: highlightAllowedCell,
+			expected: true,
 		},
 		{
 			name:     "out of bounds is clamped, allowed to strike",
 			cellX:    255,
-			expected: highlightAllowedCell,
+			expected: true,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1. Arrange
 			var board = domain.Board{
 				{domain.Miss, domain.Alive, domain.Dead, domain.Empty, 0},
-				// not free     not free      not free       free     free
-				//    ∙             ■             □
 			}
 			view := NewBoardView()
 			view.board = board
 			view.SelectCell(tt.cellX, 0)
 
 			// 2. Act
-			got := view.getCellHighlighStyle()
+			got := view.IsAllowedToFire()
 
 			// 3. Assert
 			require.Equal(t, tt.expected, got)

@@ -28,9 +28,10 @@ func (a *App) onPlayerTurnHandler(e events.Event) error {
 		return err
 	}
 
-	isLocalPlayer := a.metadata.ClientID == playerTurnEvent.Player.ID
+	isLocalPlayer := playerTurnEvent.TurningPlayer != nil &&
+		a.metadata.ClientID == playerTurnEvent.TurningPlayer.ID
 
-	return a.gameView.GiveTurnToPlayer(playerTurnEvent.Player, playerTurnEvent.RemainingTime, isLocalPlayer)
+	return a.gameView.GiveTurnToPlayer(playerTurnEvent, isLocalPlayer)
 }
 
 func (a *App) onPlayerSendMessageHandler(e events.Event) error {
