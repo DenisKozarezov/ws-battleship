@@ -46,6 +46,7 @@ func NewApp(ctx context.Context, cfg *config.Config, logger logger.Logger) *App 
 	}
 
 	eventBus.Subscribe(events.GameStartEventType, a.onGameStartedHandler)
+	eventBus.Subscribe(events.GameEndEventType, a.onGameEndHandler)
 	eventBus.Subscribe(events.PlayerUpdateStateEventType, a.onPlayerUpdateState)
 	eventBus.Subscribe(events.PlayerTurnEventType, a.onPlayerTurnHandler)
 	eventBus.Subscribe(events.SendMessageType, a.onPlayerSendMessageHandler)

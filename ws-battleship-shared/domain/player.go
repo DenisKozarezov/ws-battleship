@@ -2,14 +2,34 @@ package domain
 
 import (
 	"net/http"
+	"ws-battleship-shared/pkg/math"
 
 	"github.com/google/uuid"
 )
 
 type PlayerModel struct {
-	Board    Board
-	ID       string
-	Nickname string
+	Board     Board
+	ID        string
+	Nickname  string
+	ShipCells byte
+}
+
+func NewPlayerModel(board Board, metadata ClientMetadata) *PlayerModel {
+	var shipCells byte
+	for i := 0; i < board.Size(); i++ {
+		for j := 0; j < board.Size(); j++ {
+			if board.GetCellType(byte(i), byte(j)) == Ship {
+				shipCells++
+			}
+		}
+	}
+
+	return &PlayerModel{
+		Board:     board,
+		ID:        metadata.ClientID,
+		Nickname:  metadata.Nickname,
+		ShipCells: shipCells,
+	}
 }
 
 func (m *PlayerModel) Equal(rhs *PlayerModel) bool {
@@ -19,12 +39,12 @@ func (m *PlayerModel) Equal(rhs *PlayerModel) bool {
 	return m.ID == rhs.ID
 }
 
-func NewPlayerModel(board Board, metadata ClientMetadata) *PlayerModel {
-	return &PlayerModel{
-		Board:    board,
-		ID:       metadata.ClientID,
-		Nickname: metadata.Nickname,
-	}
+func (m *PlayerModel) IsDead() bool {
+	return m.ShipCells == 0
+}
+
+func (m *PlayerModel) DecrementCell() {
+	m.ShipCells = math.Clamp(m.ShipCells-1, 0, byte(m.Board.Size()))
 }
 
 type ClientID = string

@@ -12,6 +12,14 @@ func (a *App) onGameStartedHandler(e events.Event) error {
 	return nil
 }
 
+func (a *App) onGameEndHandler(e events.Event) error {
+	if _, err := events.CastTo[events.GameEndEvent](e); err != nil {
+		return err
+	}
+	a.gameView.EndGame()
+	return nil
+}
+
 func (a *App) onPlayerUpdateState(e events.Event) error {
 	playerUpdateEvent, err := events.CastTo[events.PlayerUpdateStateEvent](e)
 	if err != nil {

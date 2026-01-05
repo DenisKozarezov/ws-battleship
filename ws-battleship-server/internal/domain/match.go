@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -115,6 +116,10 @@ func (m *Match) IsReadyToStart() bool {
 }
 
 func (m *Match) StartMatch() error {
+	if !m.IsReadyToStart() {
+		return errors.New("not ready to start a match")
+	}
+
 	m.isStarted = true
 
 	m.logger.Infof("match is starting in room id=%s [players: %d]", m.ID(), len(m.room.GetPlayers()))
@@ -136,18 +141,31 @@ func (m *Match) StartMatch() error {
 	return m.room.SendNotification("Game started!", events.RoomNotificationType)
 }
 
+func (m *Match) EndMatch(winningPlayer *domain.PlayerModel) error {
+	m.logger.Infof("match id=%s is ended; player id=%s has won!", m.ID(), winningPlayer.ID)
+
+	event, err := events.NewGameEndEvent(winningPlayer)
+	if err != nil {
+		return err
+	}
+
+	if err := m.room.Broadcast(event); err != nil {
+		return err
+	}
+
+	_ = m.room.SendNotification(fmt.Sprintf("Player '%s' has won!", winningPlayer.Nickname), events.RoomNotificationType)
+
+	return m.Close()
+}
+
 func (m *Match) GiveTurnToNextPlayer() error {
 	defer m.resetGameTurnTimer()
 
 	if m.turningPlayer == nil {
-		return m.GiveTurnToRandomPlayer()
+		return m.GiveTurnToPlayer(m.getRandomPlayer())
 	} else {
 		return m.GiveTurnToPlayer(m.targetPlayer)
 	}
-}
-
-func (m *Match) GiveTurnToRandomPlayer() error {
-	return m.GiveTurnToPlayer(m.getRandomPlayer())
 }
 
 func (m *Match) GiveTurnToPlayer(turningPlayer *domain.PlayerModel) error {
@@ -324,7 +342,12 @@ func (m *Match) onPlayerFiredHandler(e events.Event) error {
 	if err := m.allPlayersUpdate(); err != nil {
 		return err
 	}
-	return m.GiveTurnToNextPlayer()
+
+	if m.targetPlayer.IsDead() {
+		return m.EndMatch(m.turningPlayer)
+	} else {
+		return m.GiveTurnToNextPlayer()
+	}
 }
 
 func (m *Match) fireAtCell(cellX, cellY byte) error {
@@ -336,6 +359,7 @@ func (m *Match) fireAtCell(cellX, cellY byte) error {
 
 	// If cell belongs to ship, then hit will produce a dead cell.
 	case m.targetPlayer.Board.GetCellType(cellX, cellY) == domain.Ship:
+		m.targetPlayer.DecrementCell()
 		newType = domain.Dead
 
 	// Otherwise, we return an error.

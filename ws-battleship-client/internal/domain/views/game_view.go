@@ -120,6 +120,18 @@ func (v *GameView) StartGame() {
 	v.gameTickerView.Start()
 }
 
+func (v *GameView) EndGame() {
+	v.gameTickerView.Stop()
+
+	if v.leftBoard != nil {
+		v.leftBoard.SetSelectable(false)
+	}
+
+	if v.rightBoard != nil {
+		v.rightBoard.SetSelectable(false)
+	}
+}
+
 func (v *GameView) SetGameModel(gameModel *domain.GameModel) {
 	clear(v.boards)
 

@@ -23,6 +23,7 @@ const (
 	PlayerFireEventType        EventType = "player_fire"
 	PlayerUpdateStateEventType EventType = "player_update_state"
 	GameStartEventType         EventType = "game_start"
+	GameEndEventType           EventType = "game_end"
 	SendMessageType            EventType = "send_message"
 )
 
@@ -102,11 +103,18 @@ func NewPlayerFireEvent(metadata domain.ClientMetadata, cellX, cellY byte) (Even
 	})
 }
 
-type GameStartEvent struct {
-}
+type GameStartEvent struct{}
 
 func NewGameStartEvent() (Event, error) {
 	return NewEvent(GameStartEventType, GameStartEvent{})
+}
+
+type GameEndEvent struct {
+	WinningPlayer *domain.PlayerModel `json:"winning_player"`
+}
+
+func NewGameEndEvent(winningPlayer *domain.PlayerModel) (Event, error) {
+	return NewEvent(GameEndEventType, GameEndEvent{WinningPlayer: winningPlayer})
 }
 
 type ChatMessageType = string

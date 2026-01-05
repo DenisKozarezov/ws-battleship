@@ -125,6 +125,14 @@ func (r *Room) Capacity() (capacity int) {
 	return
 }
 
+func (r *Room) SendNotification(msg string, notificationType events.ChatMessageType) error {
+	event, err := events.NewChatNotificationEvent(msg, notificationType)
+	if err != nil {
+		return fmt.Errorf("couldn't send a chat notification: %w", err)
+	}
+	return r.Broadcast(event)
+}
+
 func (r *Room) SendMessageToClient(clientID string, msg events.Event) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -134,14 +142,6 @@ func (r *Room) SendMessageToClient(clientID string, msg events.Event) error {
 	}
 
 	return r.players[clientID].SendMessage(msg)
-}
-
-func (r *Room) SendNotification(msg string, notificationType events.ChatMessageType) error {
-	event, err := events.NewChatNotificationEvent(msg, notificationType)
-	if err != nil {
-		return fmt.Errorf("couldn't send a chat notification: %w", err)
-	}
-	return r.Broadcast(event)
 }
 
 func (r *Room) Broadcast(e events.Event) error {
