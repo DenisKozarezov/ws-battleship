@@ -15,7 +15,7 @@ const (
 	Null  CellType = 0
 	Empty CellType = ' '
 	Dead  CellType = '□'
-	Alive CellType = '■'
+	Ship  CellType = '■'
 	Miss  CellType = '∙'
 )
 

@@ -179,9 +179,9 @@ func TestFireAtCell(t *testing.T) {
 			expectedType: domain.Miss,
 		},
 		{
-			name: "fire at alive cell, expecting dead",
+			name: "fire at ship cell, expecting dead",
 			board: domain.Board{
-				{domain.Alive},
+				{domain.Ship},
 			},
 			cellX:        0,
 			cellY:        0,
@@ -190,7 +190,11 @@ func TestFireAtCell(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1. Arrange
-			match := Match{targetPlayer: domain.NewPlayerModel(tt.board, domain.ClientMetadata{})}
+			match := Match{
+				turningPlayer: domain.NewPlayerModel(tt.board, domain.ClientMetadata{ClientID: "player 1"}),
+				targetPlayer:  domain.NewPlayerModel(tt.board, domain.ClientMetadata{ClientID: "player 2"}),
+				visible:       make(map[string][]VisibleCell),
+			}
 
 			// 2. Act
 			err := match.fireAtCell(tt.cellX, tt.cellY)
@@ -209,12 +213,65 @@ func TestFireAtInvalidTarget(t *testing.T) {
 			{domain.Dead},
 		}
 
-		match := Match{targetPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{})}
+		match := Match{
+			turningPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 1"}),
+			targetPlayer:  domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 2"}),
+			visible:       make(map[string][]VisibleCell),
+		}
 
 		// 2. Act
 		err := match.fireAtCell(0, 0)
 
 		// 3. Assert
 		require.ErrorIsf(t, err, ErrInvalidTarget, "expected error invalid target")
+	})
+}
+
+func TestTurningPlayerVisionAfterFire(t *testing.T) {
+	t.Run("hit an empty cell", func(t *testing.T) {
+		// 1. Arrange
+		board := domain.Board{
+			{domain.Empty},
+		}
+
+		match := Match{
+			turningPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 1"}),
+			targetPlayer:  domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 2"}),
+			visible:       make(map[string][]VisibleCell),
+		}
+
+		// 2. Act
+		err := match.fireAtCell(0, 0)
+
+		// 3. Assert
+		require.NoError(t, err)
+		require.EqualValuesf(t, []VisibleCell{
+			{X: 0, Y: 0},
+		}, match.visible["player 1"], "hit cell must be revealed for the turning player")
+		require.Nil(t, match.visible["player 2"])
+	})
+
+	t.Run("hit some cells", func(t *testing.T) {
+		// 1. Arrange
+		board := domain.Board{
+			{domain.Empty, domain.Ship, domain.Ship, domain.Miss},
+		}
+
+		match := Match{
+			turningPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 1"}),
+			targetPlayer:  domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 2"}),
+			visible:       make(map[string][]VisibleCell),
+		}
+
+		// 2. Act
+		require.NoError(t, match.fireAtCell(0, 0))
+		require.NoError(t, match.fireAtCell(1, 0))
+		require.NoError(t, match.fireAtCell(2, 0))
+
+		// 3. Assert
+		require.EqualValuesf(t, []VisibleCell{
+			{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 0},
+		}, match.visible["player 1"], "hit cells must be revealed for the turning player")
+		require.Nil(t, match.visible["player 2"])
 	})
 }

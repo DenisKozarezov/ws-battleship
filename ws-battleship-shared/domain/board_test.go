@@ -10,7 +10,7 @@ import (
 func TestBoardGetCellType(t *testing.T) {
 	// 1. Arrange
 	var b = Board{
-		{Alive, 0, 0, 0, Alive, Alive, Dead, 0, 0, Dead},
+		{Ship, 0, 0, 0, Ship, Ship, Dead, 0, 0, Dead},
 		{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty},
 		{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty},
 		{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty},
@@ -38,7 +38,7 @@ func TestBoardGetCellType(t *testing.T) {
 			name:     "first cell of the first row",
 			cellX:    0,
 			cellY:    0,
-			expected: Alive,
+			expected: Ship,
 		},
 		{
 			name:     "last cell of the first row",
@@ -89,8 +89,8 @@ func TestBoardLines(t *testing.T) {
 		var b = Board{
 			{Miss, Miss, Miss, Miss, Miss, Miss, Miss, Miss, Miss, Miss},           // 1
 			{Dead, Empty, Dead, Empty, Dead, Empty, Dead, Empty, Dead, Empty},      // 2
-			{Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead, Alive, Dead},      // 3
-			{Miss, Dead, Alive, Miss, Dead, Alive, Miss, Dead, Alive, Miss},        // 4
+			{Ship, Dead, Ship, Dead, Ship, Dead, Ship, Dead, Ship, Dead},           // 3
+			{Miss, Dead, Ship, Miss, Dead, Ship, Miss, Dead, Ship, Miss},           // 4
 			{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty}, // 5
 			{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty}, // 6
 			{Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead},           // 7
@@ -122,7 +122,7 @@ func TestBoardLines(t *testing.T) {
 func TestRenderBoardRow(t *testing.T) {
 	// 1. Arrange
 	var b = Board{
-		{Miss, Miss, Empty, Empty, Alive, Alive, Dead, Empty, Miss, Empty},
+		{Miss, Miss, Empty, Empty, Ship, Ship, Dead, Empty, Miss, Empty},
 		{Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty, Empty},
 		{Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead, Dead},
 	}

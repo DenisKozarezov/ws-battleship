@@ -132,7 +132,7 @@ func (v *BoardView) SelectCell(cellX, cellY int) {
 }
 
 func (v *BoardView) IsAllowedToFire() bool {
-	return v.board.IsCellEmpty(byte(v.cellX), byte(v.cellY)) || v.board.GetCellType(byte(v.cellX), byte(v.cellY)) == domain.Alive
+	return v.board.IsCellEmpty(byte(v.cellX), byte(v.cellY)) || v.board.GetCellType(byte(v.cellX), byte(v.cellY)) == domain.Ship
 }
 
 func (v *BoardView) renderBoardRow(str string, currentRowIdx int) string {

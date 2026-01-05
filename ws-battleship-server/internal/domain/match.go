@@ -13,6 +13,10 @@ import (
 	"ws-battleship-shared/pkg/logger"
 )
 
+type VisibleCell struct {
+	X, Y byte
+}
+
 type Match struct {
 	ctx     context.Context
 	closeCh chan struct{}
@@ -28,6 +32,7 @@ type Match struct {
 	gameTurnTimer *time.Timer
 	turningPlayer *domain.PlayerModel
 	targetPlayer  *domain.PlayerModel
+	visible       map[string][]VisibleCell
 	gameModel     domain.GameModel
 
 	eventBus *events.EventBus
@@ -41,6 +46,7 @@ func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Ma
 		cfg:           cfg,
 		logger:        logger,
 		gameTurnTimer: time.NewTimer(cfg.Game.GameTurnTime),
+		visible:       make(map[string][]VisibleCell),
 		eventBus:      events.NewEventBus(),
 	}
 
@@ -112,7 +118,7 @@ func (m *Match) StartMatch() error {
 	m.isStarted = true
 
 	m.logger.Infof("match is starting in room id=%s [players: %d]", m.ID(), len(m.room.GetPlayers()))
-	event, err := events.NewGameStartEvent(&m.gameModel)
+	event, err := events.NewGameStartEvent()
 	if err != nil {
 		return err
 	}
@@ -218,11 +224,47 @@ func (m *Match) resetGameTurnTimer() {
 }
 
 func (m *Match) allPlayersUpdate() error {
-	event, err := events.NewPlayerUpdateStateEvent(&m.gameModel)
-	if err != nil {
-		return err
+	players := m.room.GetPlayers()
+	for i := range players {
+		event, err := events.NewPlayerUpdateStateEvent(m.maskGameForPlayer(players[i].Model))
+		if err != nil {
+			return err
+		}
+
+		if err := m.room.SendMessageToClient(players[i].ID(), event); err != nil {
+			return err
+		}
 	}
-	return m.room.Broadcast(event)
+
+	return nil
+}
+
+func (m *Match) maskGameForPlayer(targetPlayer *domain.PlayerModel) *domain.GameModel {
+	maskedGameModel := m.gameModel.Copy()
+	if maskedGameModel.LeftPlayer != nil && !maskedGameModel.LeftPlayer.Equal(targetPlayer) {
+		maskedGameModel.LeftPlayer.Board = m.maskBoardForPlayer(&m.gameModel.LeftPlayer.Board, targetPlayer)
+	}
+	if maskedGameModel.RightPlayer != nil && !maskedGameModel.RightPlayer.Equal(targetPlayer) {
+		maskedGameModel.RightPlayer.Board = m.maskBoardForPlayer(&m.gameModel.RightPlayer.Board, targetPlayer)
+	}
+	return &maskedGameModel
+}
+
+func (m *Match) maskBoardForPlayer(board *domain.Board, targetPlayer *domain.PlayerModel) domain.Board {
+	if targetPlayer == nil {
+		return *board
+	}
+
+	visibleCells := m.visible[targetPlayer.ID]
+
+	var copiedBoard domain.Board
+	for i := 0; i < len(visibleCells); i++ {
+		visibleX := visibleCells[i].X
+		visibleY := visibleCells[i].Y
+		copiedBoard.SetCell(visibleX, visibleY, board.GetCellType(visibleX, visibleY))
+	}
+
+	return copiedBoard
 }
 
 func (m *Match) onPlayerJoinedHandler(joinedPlayer *Player) {
@@ -286,16 +328,25 @@ func (m *Match) onPlayerFiredHandler(e events.Event) error {
 }
 
 func (m *Match) fireAtCell(cellX, cellY byte) error {
+	var newType domain.CellType
 	switch {
+	// If cell is empty, then hit will produce miss.
 	case m.targetPlayer.Board.IsCellEmpty(cellX, cellY):
-		m.targetPlayer.Board.SetCell(cellX, cellY, domain.Miss)
-		return nil
+		newType = domain.Miss
 
-	case m.targetPlayer.Board.GetCellType(cellX, cellY) == domain.Alive:
-		m.targetPlayer.Board.SetCell(cellX, cellY, domain.Dead)
-		return nil
+	// If cell belongs to ship, then hit will produce a dead cell.
+	case m.targetPlayer.Board.GetCellType(cellX, cellY) == domain.Ship:
+		newType = domain.Dead
 
+	// Otherwise, we return an error.
 	default:
 		return ErrInvalidTarget
 	}
+
+	m.targetPlayer.Board.SetCell(cellX, cellY, newType)
+	m.visible[m.turningPlayer.ID] = append(m.visible[m.turningPlayer.ID], VisibleCell{
+		X: cellX,
+		Y: cellY,
+	})
+	return nil
 }

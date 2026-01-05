@@ -194,7 +194,7 @@ func TestIsAllowedToFire(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "alive cell, allowed to strike",
+			name:     "ship cell, allowed to strike",
 			cellX:    1,
 			expected: true,
 		},
@@ -222,7 +222,7 @@ func TestIsAllowedToFire(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1. Arrange
 			var board = domain.Board{
-				{domain.Miss, domain.Alive, domain.Dead, domain.Empty, 0},
+				{domain.Miss, domain.Ship, domain.Dead, domain.Empty, 0},
 			}
 			view := NewBoardView()
 			view.board = board

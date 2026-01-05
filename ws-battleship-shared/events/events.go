@@ -103,13 +103,10 @@ func NewPlayerFireEvent(metadata domain.ClientMetadata, cellX, cellY byte) (Even
 }
 
 type GameStartEvent struct {
-	GameModel *domain.GameModel `json:"game_model"`
 }
 
-func NewGameStartEvent(gameModel *domain.GameModel) (Event, error) {
-	return NewEvent(GameStartEventType, GameStartEvent{
-		GameModel: gameModel,
-	})
+func NewGameStartEvent() (Event, error) {
+	return NewEvent(GameStartEventType, GameStartEvent{})
 }
 
 type ChatMessageType = string
