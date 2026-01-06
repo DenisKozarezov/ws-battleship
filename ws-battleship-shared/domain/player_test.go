@@ -7,7 +7,7 @@ import (
 )
 
 func TestPlayerIsDeadAfterAllShipCellsWereHit(t *testing.T) {
-	t.Run("player is dead, when 1 only ship cell was decremented", func(t *testing.T) {
+	t.Run("player is dead, when a single ship cell was hit", func(t *testing.T) {
 		// 1. Arrange
 		board := Board{
 			{Ship},
@@ -16,14 +16,14 @@ func TestPlayerIsDeadAfterAllShipCellsWereHit(t *testing.T) {
 		player := NewPlayerModel(board, ClientMetadata{})
 
 		// 2. Act
-		player.DecrementCell()
+		player.Hit()
 
 		// 3. Assert
 		require.Zero(t, player.ShipCells)
 		require.Truef(t, player.IsDead(), "player must be dead")
 	})
 
-	t.Run("decrement all ship cells", func(t *testing.T) {
+	t.Run("hit all ship cells", func(t *testing.T) {
 		// 1. Arrange
 		var board Board
 		for i := 0; i < board.Size(); i++ {
@@ -37,7 +37,7 @@ func TestPlayerIsDeadAfterAllShipCellsWereHit(t *testing.T) {
 		// 2. Act
 		for i := 0; i < board.Size(); i++ {
 			for j := 0; j < board.Size(); j++ {
-				player.DecrementCell()
+				player.Hit()
 			}
 		}
 
@@ -55,7 +55,7 @@ func TestPlayerIsDeadAfterAllShipCellsWereHit(t *testing.T) {
 		player := NewPlayerModel(board, ClientMetadata{})
 
 		// 2. Act
-		player.DecrementCell()
+		player.Hit()
 
 		// 3. Assert
 		require.Equalf(t, byte(1), player.ShipCells, "1 ship cell should remain")

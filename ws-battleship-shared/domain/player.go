@@ -42,8 +42,8 @@ func (m *PlayerModel) IsDead() bool {
 	return m.ShipCells == 0
 }
 
-func (m *PlayerModel) DecrementCell() {
-	if m.ShipCells == 0 {
+func (m *PlayerModel) Hit() {
+	if m.IsDead() {
 		return
 	}
 	m.ShipCells--

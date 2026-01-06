@@ -363,7 +363,7 @@ func (m *Match) fireAtCell(cellX, cellY byte) error {
 
 	// If cell belongs to ship, then hit will produce a dead cell.
 	case m.targetPlayer.Board.GetCellType(cellX, cellY) == domain.Ship:
-		m.targetPlayer.DecrementCell()
+		m.targetPlayer.Hit()
 		newType = domain.Dead
 
 	// Otherwise, we return an error.
