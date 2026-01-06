@@ -218,6 +218,7 @@ func (m *Match) gameLoop(ctx context.Context) {
 			return
 
 		case <-m.closeCh:
+			m.logger.Infof("stoping game loop in match id=%s", m.ID())
 			return
 
 		case <-m.gameTurnTimer.C:
@@ -225,9 +226,12 @@ func (m *Match) gameLoop(ctx context.Context) {
 				m.logger.Errorf("failed to give a turn to the next player: %s", err)
 			}
 
-		case msg, opened := <-m.room.Events():
-			if !opened {
-				continue
+		case msg := <-m.room.Events():
+			select {
+			case <-m.closeCh:
+				m.logger.Infof("stoping game loop in match id=%s", m.ID())
+				return
+			default:
 			}
 
 			if err := m.eventBus.Invoke(msg); err != nil {

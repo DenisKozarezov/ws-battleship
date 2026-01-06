@@ -2,7 +2,6 @@ package domain
 
 import (
 	"net/http"
-	"ws-battleship-shared/pkg/math"
 
 	"github.com/google/uuid"
 )
@@ -18,7 +17,7 @@ func NewPlayerModel(board Board, metadata ClientMetadata) *PlayerModel {
 	var shipCells byte
 	for i := 0; i < board.Size(); i++ {
 		for j := 0; j < board.Size(); j++ {
-			if board.GetCellType(byte(i), byte(j)) == Ship {
+			if board.GetCellType(byte(j), byte(i)) == Ship {
 				shipCells++
 			}
 		}
@@ -44,7 +43,10 @@ func (m *PlayerModel) IsDead() bool {
 }
 
 func (m *PlayerModel) DecrementCell() {
-	m.ShipCells = math.Clamp(m.ShipCells-1, 0, byte(m.Board.Size()))
+	if m.ShipCells == 0 {
+		return
+	}
+	m.ShipCells--
 }
 
 type ClientID = string

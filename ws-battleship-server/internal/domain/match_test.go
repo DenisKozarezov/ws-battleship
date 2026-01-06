@@ -275,3 +275,70 @@ func TestTurningPlayerVisionAfterFire(t *testing.T) {
 		require.Nil(t, match.visible["player 2"])
 	})
 }
+
+func TestPlayerIsDeadAfterAllShipCellsWereHit(t *testing.T) {
+	t.Run("hit all ship cells 1", func(t *testing.T) {
+		// 1. Arrange
+		board := domain.Board{
+			{domain.Empty, domain.Ship, domain.Ship, domain.Miss},
+		}
+
+		match := Match{
+			turningPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 1"}),
+			targetPlayer:  domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 2"}),
+			visible:       make(map[string][]VisibleCell),
+		}
+
+		// 2. Act
+		require.NoError(t, match.fireAtCell(1, 0))
+		require.NoError(t, match.fireAtCell(2, 0))
+
+		// 3. Assert
+		require.Truef(t, match.targetPlayer.IsDead(), "target player must be dead")
+	})
+
+	t.Run("hit all ship cells 2", func(t *testing.T) {
+		// 1. Arrange
+		var board domain.Board
+		for i := 0; i < board.Size(); i++ {
+			for j := 0; j < board.Size(); j++ {
+				board.SetCell(byte(j), byte(i), domain.Ship)
+			}
+		}
+
+		match := Match{
+			turningPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 1"}),
+			targetPlayer:  domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 2"}),
+			visible:       make(map[string][]VisibleCell),
+		}
+
+		// 2. Act
+		for i := 0; i < board.Size(); i++ {
+			for j := 0; j < board.Size(); j++ {
+				require.NoError(t, match.fireAtCell(byte(j), byte(i)))
+			}
+		}
+
+		// 3. Assert
+		require.Truef(t, match.targetPlayer.IsDead(), "target player must be dead")
+	})
+
+	t.Run("player is not dead, when at least 1 ship cell is alive", func(t *testing.T) {
+		// 1. Arrange
+		board := domain.Board{
+			{domain.Dead, domain.Ship, domain.Ship, domain.Dead},
+		}
+
+		match := Match{
+			turningPlayer: domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 1"}),
+			targetPlayer:  domain.NewPlayerModel(board, domain.ClientMetadata{ClientID: "player 2"}),
+			visible:       make(map[string][]VisibleCell),
+		}
+
+		// 2. Act
+		require.NoError(t, match.fireAtCell(1, 0))
+
+		// 3. Assert
+		require.Falsef(t, match.targetPlayer.IsDead(), "target player must not be dead")
+	})
+}

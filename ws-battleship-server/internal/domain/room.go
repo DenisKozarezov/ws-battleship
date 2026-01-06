@@ -188,20 +188,12 @@ func (r *Room) handleConnections(ctx context.Context) {
 		case <-r.closeCh:
 			return
 
-		case joinedPlayer, opened := <-r.joinCh:
-			if !opened {
-				return
-			}
-
+		case joinedPlayer := <-r.joinCh:
 			if err := r.onPlayerJoinedHandler(joinedPlayer); err != nil {
 				r.logger.Error(err)
 			}
 
-		case leftPlayer, opened := <-r.leaveCh:
-			if !opened {
-				return
-			}
-
+		case leftPlayer := <-r.leaveCh:
 			if err := r.onPlayerLeftHandler(leftPlayer); err != nil {
 				r.logger.Error(err)
 			}

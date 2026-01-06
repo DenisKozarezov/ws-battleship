@@ -61,8 +61,6 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 
 	metadata := shared.ParseClientMetadataFromHeaders(r)
 	newClient := NewWebsocketClient(conn, l.logger, metadata)
-	newPlayer := domain.NewPlayer(newClient, metadata)
-
-	l.joinCh <- newPlayer
+	l.joinCh <- domain.NewPlayer(newClient, metadata)
 	return nil
 }
