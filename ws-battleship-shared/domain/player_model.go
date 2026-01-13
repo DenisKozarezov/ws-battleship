@@ -2,6 +2,7 @@ package domain
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -36,6 +37,13 @@ func (m *PlayerModel) Equal(rhs *PlayerModel) bool {
 		return false
 	}
 	return m.ID == rhs.ID
+}
+
+func (m *PlayerModel) Compare(rhs *PlayerModel) int {
+	if rhs == nil {
+		return -1
+	}
+	return strings.Compare(m.ID, rhs.ID)
 }
 
 func (m *PlayerModel) IsDead() bool {

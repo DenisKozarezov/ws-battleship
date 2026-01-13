@@ -102,21 +102,19 @@ func (r *App) handleConnections(ctx context.Context) {
 		// Register incoming clients, when they establish a connection.
 		case newPlayer, opened := <-r.joinCh:
 			if opened {
-				if err := r.connectPlayerToFreeRoom(ctx, newPlayer); err != nil {
-					r.logger.Errorf("failed to connect a player to free match: %s", err)
-				}
+				r.connectPlayerToFreeRoom(ctx, newPlayer)
 			}
 		}
 	}
 }
 
-func (r *App) connectPlayerToFreeRoom(ctx context.Context, newPlayer *domain.Player) error {
+func (r *App) connectPlayerToFreeRoom(ctx context.Context, newPlayer *domain.Player) {
 	match := r.findFreeMatch()
 	if match == nil {
 		match = r.createNewMatch(ctx)
 	}
 
-	return match.JoinNewPlayer(newPlayer)
+	match.Dispatch(domain.NewJoinCommand(r.logger, newPlayer))
 }
 
 func (r *App) findFreeMatch() *domain.Match {

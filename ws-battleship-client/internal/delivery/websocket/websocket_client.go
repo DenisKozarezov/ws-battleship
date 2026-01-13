@@ -69,12 +69,12 @@ func (c *WebsocketClient) Connect(ctx context.Context, metadata domain.ClientMet
 	c.wg.Add(2)
 	go func(wg *sync.WaitGroup, conn *websocket.Conn) {
 		defer wg.Done()
-		c.handleReadMessages(c.ctx, conn)
+		c.ReadMessages(c.ctx, conn)
 	}(&c.wg, conn)
 
 	go func(wg *sync.WaitGroup) {
 		defer wg.Done()
-		c.handleWriteMessages(c.ctx)
+		c.WriteMessages(c.ctx)
 	}(&c.wg)
 
 	return nil
@@ -115,7 +115,7 @@ func (c *WebsocketClient) SendMessage(e events.Event) error {
 	return nil
 }
 
-func (c *WebsocketClient) handleReadMessages(ctx context.Context, conn *websocket.Conn) {
+func (c *WebsocketClient) ReadMessages(ctx context.Context, conn *websocket.Conn) {
 	defer close(c.readCh)
 
 	for {
@@ -163,7 +163,7 @@ func (c *WebsocketClient) handleReadMessages(ctx context.Context, conn *websocke
 	}
 }
 
-func (c *WebsocketClient) handleWriteMessages(ctx context.Context) {
+func (c *WebsocketClient) WriteMessages(ctx context.Context) {
 	defer close(c.writeCh)
 
 	for {

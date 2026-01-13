@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 	"ws-battleship-server/internal/config"
+	"ws-battleship-server/internal/delivery/websocket"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
@@ -19,9 +20,9 @@ type Room struct {
 	mu   sync.RWMutex
 	wg   sync.WaitGroup
 
-	players    map[string]*Player
-	joinCh     chan *Player
-	leaveCh    chan *Player
+	clients    map[string]websocket.Client
+	joinCh     chan websocket.Client
+	leaveCh    chan websocket.Client
 	messagesCh chan events.Event
 	closeCh    chan struct{}
 
@@ -29,16 +30,16 @@ type Room struct {
 	cfg    *config.AppConfig
 	logger logger.Logger
 
-	playerJoinedHandler func(joinedPlayer *Player)
-	playerLeftHandler   func(leftPlayer *Player)
+	clientJoinedHandler func(websocket.Client)
+	clientLeftHandler   func(websocket.Client)
 }
 
 func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *Room {
 	r := &Room{
 		ctx:        ctx,
-		players:    make(map[string]*Player, cfg.RoomCapacityMax),
-		joinCh:     make(chan *Player, cfg.RoomCapacityMax),
-		leaveCh:    make(chan *Player, cfg.RoomCapacityMax),
+		clients:    make(map[string]websocket.Client, cfg.RoomCapacityMax),
+		joinCh:     make(chan websocket.Client, cfg.RoomCapacityMax),
+		leaveCh:    make(chan websocket.Client, cfg.RoomCapacityMax),
 		messagesCh: make(chan events.Event, events.ReadBufferBytesMax),
 		closeCh:    make(chan struct{}),
 		id:         uuid.New().String(),
@@ -53,7 +54,7 @@ func NewRoom(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *
 	})
 	r.wg.Go(func() {
 		defer r.wg.Done()
-		r.pingPlayers(ctx)
+		r.pingClients(ctx)
 	})
 
 	return r
@@ -80,17 +81,17 @@ func (c *Room) Compare(rhs *Room) int {
 func (r *Room) Close() error {
 	r.once.Do(func() {
 		close(r.closeCh)
-		r.logger.Infof("room id=%s [players: %d] is closing...", r.ID(), r.Capacity())
+		r.logger.Infof("room id=%s [clients: %d] is closing...", r.ID(), r.Capacity())
 	})
 
-	for _, player := range r.GetPlayers() {
-		if err := r.unregisterPlayer(player); err != nil {
+	for _, client := range r.GetClients() {
+		if err := r.unregisterClient(client); err != nil {
 			return err
 		}
 	}
 	r.wg.Wait()
 
-	r.logger.Infof("all players in room id=%s were unregistered", r.ID())
+	r.logger.Infof("all clients in room id=%s were unregistered", r.ID())
 	r.logger.Infof("room id=%s is closed", r.ID())
 
 	return nil
@@ -100,79 +101,71 @@ func (r *Room) IsFull() bool {
 	return r.Capacity() >= int(r.cfg.RoomCapacityMax)
 }
 
-func (r *Room) JoinNewPlayer(newPlayer *Player) error {
+func (r *Room) JoinNewClient(joinedClient websocket.Client) error {
 	select {
 	case <-r.closeCh:
 		return ErrRoomIsClosed
-	case r.joinCh <- newPlayer:
+	case r.joinCh <- joinedClient:
 	default:
 	}
 	return nil
 }
 
-func (r *Room) LeavePlayer(player *Player) {
+func (r *Room) LeaveClient(client websocket.Client) {
 	select {
 	case <-r.closeCh:
-	case r.leaveCh <- player:
+	case r.leaveCh <- client:
 	default:
 	}
 }
 
 func (r *Room) Capacity() (capacity int) {
 	r.mu.RLock()
-	capacity = len(r.players)
+	capacity = len(r.clients)
 	r.mu.RUnlock()
 	return
-}
-
-func (r *Room) SendNotification(msg string, notificationType events.ChatMessageType) error {
-	event, err := events.NewChatNotificationEvent(msg, notificationType)
-	if err != nil {
-		return fmt.Errorf("couldn't send a chat notification: %w", err)
-	}
-	return r.Broadcast(event)
 }
 
 func (r *Room) SendMessageToClient(clientID string, msg events.Event) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	if _, found := r.players[clientID]; !found {
+	if _, found := r.clients[clientID]; !found {
 		return ErrPlayerNotExist
 	}
 
-	return r.players[clientID].SendMessage(msg)
+	return r.clients[clientID].SendMessage(msg)
 }
 
 func (r *Room) Broadcast(e events.Event) error {
-	for _, player := range r.GetPlayers() {
-		if err := player.SendMessage(e); err != nil {
-			return fmt.Errorf("failed to send a broadcast message to player id=%s", player.ID())
+	for _, client := range r.GetClients() {
+		if err := client.SendMessage(e); err != nil {
+			return fmt.Errorf("failed to send a broadcast message to client id=%s", client.ID())
 		}
 	}
 	return nil
 }
 
-func (r *Room) GetPlayers() []*Player {
+func (r *Room) GetClients() []websocket.Client {
 	r.mu.RLock()
-	players := make([]*Player, 0, len(r.players))
-	for _, player := range r.players {
-		players = append(players, player)
+	clients := make([]websocket.Client, 0, len(r.clients))
+	for _, client := range r.clients {
+		clients = append(clients, client)
 	}
 	r.mu.RUnlock()
-	return players
+	return clients
 }
 
 func (r *Room) Events() <-chan events.Event {
 	return r.messagesCh
 }
 
-func (r *Room) SetPlayerJoinedHandler(fn func(joinedPlayer *Player)) {
-	r.playerJoinedHandler = fn
+func (r *Room) SetClientJoinedHandler(fn func(websocket.Client)) {
+	r.clientJoinedHandler = fn
 }
 
-func (r *Room) SetPlayerLeftHandler(fn func(leftPlayer *Player)) {
-	r.playerLeftHandler = fn
+func (r *Room) SetClientLeftHandler(fn func(websocket.Client)) {
+	r.clientLeftHandler = fn
 }
 
 func (r *Room) handleConnections(ctx context.Context) {
@@ -188,20 +181,20 @@ func (r *Room) handleConnections(ctx context.Context) {
 		case <-r.closeCh:
 			return
 
-		case joinedPlayer := <-r.joinCh:
-			if err := r.onPlayerJoinedHandler(joinedPlayer); err != nil {
+		case joinedClient := <-r.joinCh:
+			if err := r.onClientJoinedHandler(joinedClient); err != nil {
 				r.logger.Error(err)
 			}
 
-		case leftPlayer := <-r.leaveCh:
-			if err := r.onPlayerLeftHandler(leftPlayer); err != nil {
+		case leftClient := <-r.leaveCh:
+			if err := r.onClientLeftHandler(leftClient); err != nil {
 				r.logger.Error(err)
 			}
 		}
 	}
 }
 
-func (r *Room) pingPlayers(ctx context.Context) {
+func (r *Room) pingClients(ctx context.Context) {
 	pingTicker := time.NewTicker(r.cfg.KeepAlivePeriod)
 	defer pingTicker.Stop()
 
@@ -221,93 +214,75 @@ func (r *Room) pingPlayers(ctx context.Context) {
 		// are still alive. If no, then the server unregisters potentially dead clients. There are literally
 		// zero reasons to keep stalled connections alive, so the server deallocates them for other needs.
 		case <-pingTicker.C:
-			for _, player := range r.GetPlayers() {
-				if err := player.Ping(); err != nil {
-					r.logger.Errorf("failed to ping a player id=%s: %s", player.ID(), err)
-					r.LeavePlayer(player)
+			for _, client := range r.GetClients() {
+				if err := client.Ping(); err != nil {
+					r.logger.Errorf("failed to ping a client id=%s: %s", client.ID(), err)
+					r.LeaveClient(client)
 				}
 			}
 		}
 	}
 }
 
-func (r *Room) registerNewPlayer(newPlayer *Player) error {
+func (r *Room) registerNewClient(newClient websocket.Client) error {
 	if r.IsFull() {
 		return ErrRoomIsFull
 	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if _, found := r.players[newPlayer.ID()]; found {
+	if _, found := r.clients[newClient.ID()]; found {
 		return ErrPlayerAlreadyInRoom
 	}
 
-	r.players[newPlayer.ID()] = newPlayer
+	r.clients[newClient.ID()] = newClient
 
 	r.wg.Add(2)
-	go func(wg *sync.WaitGroup, player *Player) {
+	go func(wg *sync.WaitGroup, client websocket.Client) {
 		defer wg.Done()
-		player.ReadMessages(r.ctx, r.messagesCh)
-	}(&r.wg, newPlayer)
+		client.ReadMessages(r.ctx, r.messagesCh)
+	}(&r.wg, newClient)
 
-	go func(wg *sync.WaitGroup, player *Player) {
+	go func(wg *sync.WaitGroup, client websocket.Client) {
 		defer wg.Done()
-		player.WriteMessages(r.ctx)
-	}(&r.wg, newPlayer)
+		client.WriteMessages(r.ctx)
+	}(&r.wg, newClient)
 
 	return nil
 }
 
-func (r *Room) unregisterPlayer(player *Player) error {
+func (r *Room) unregisterClient(client websocket.Client) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, found := r.players[player.ID()]; !found {
+	if _, found := r.clients[client.ID()]; !found {
 		return ErrPlayerNotExist
 	}
 
-	player.Close()
-	delete(r.players, player.ID())
+	client.Close()
+	delete(r.clients, client.ID())
 
 	return nil
 }
 
-func (r *Room) onPlayerJoinedHandler(joinedPlayer *Player) error {
-	if err := r.registerNewPlayer(joinedPlayer); err != nil {
-		return fmt.Errorf("failed to register new player: %s", err)
+func (r *Room) onClientJoinedHandler(joinedClient websocket.Client) error {
+	if err := r.registerNewClient(joinedClient); err != nil {
+		return fmt.Errorf("failed to register new client_id=%s: %s", joinedClient.ID(), err)
 	}
 
-	event, err := events.NewPlayerJoinedEvent(joinedPlayer.Model)
-	if err != nil {
-		return err
-	}
-
-	if err = r.Broadcast(event); err != nil {
-		return err
-	}
-
-	if r.playerJoinedHandler != nil {
-		r.playerJoinedHandler(joinedPlayer)
+	if r.clientJoinedHandler != nil {
+		r.clientJoinedHandler(joinedClient)
 	}
 	return nil
 }
 
-func (r *Room) onPlayerLeftHandler(leftPlayer *Player) error {
-	if err := r.unregisterPlayer(leftPlayer); err != nil {
-		return fmt.Errorf("failed to unregister player: %s", err)
+func (r *Room) onClientLeftHandler(leftClient websocket.Client) error {
+	if err := r.unregisterClient(leftClient); err != nil {
+		return fmt.Errorf("failed to unregister client_id=%s: %s", leftClient.ID(), err)
 	}
 
-	event, err := events.NewPlayerLeftEvent(leftPlayer.Model)
-	if err != nil {
-		return err
-	}
-
-	if err = r.Broadcast(event); err != nil {
-		return err
-	}
-
-	if r.playerLeftHandler != nil {
-		r.playerLeftHandler(leftPlayer)
+	if r.clientLeftHandler != nil {
+		r.clientLeftHandler(leftClient)
 	}
 
 	return nil

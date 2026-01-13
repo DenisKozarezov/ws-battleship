@@ -25,6 +25,7 @@ var (
 )
 
 type BoardView struct {
+	playerID string
 	nickname string
 
 	selectedRowIdx int
@@ -111,6 +112,7 @@ func (v *BoardView) View() string {
 }
 
 func (v *BoardView) SetPlayer(player *domain.PlayerModel) {
+	v.playerID = player.ID
 	v.board = player.Board
 	v.nickname = player.Nickname
 }

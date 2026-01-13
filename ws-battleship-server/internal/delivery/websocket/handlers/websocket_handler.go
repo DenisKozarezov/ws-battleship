@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"ws-battleship-server/internal/config"
 	"ws-battleship-server/internal/delivery/http/response"
-	"ws-battleship-server/internal/domain"
-	shared "ws-battleship-shared/domain"
+	server "ws-battleship-server/internal/domain"
+	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
@@ -20,11 +20,11 @@ type WebsocketListener struct {
 	once       sync.Once
 	isShutdown atomic.Bool
 
-	joinCh chan *domain.Player
+	joinCh chan *server.Player
 	logger logger.Logger
 }
 
-func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger, joinCh chan *domain.Player) *WebsocketListener {
+func NewWebsocketListener(cfg *config.AppConfig, logger logger.Logger, joinCh chan *server.Player) *WebsocketListener {
 	websocketUpgrader := websocket.Upgrader{
 		ReadBufferSize:  events.ReadBufferBytesMax,
 		WriteBufferSize: events.WriteBufferBytesMax,
@@ -59,8 +59,8 @@ func (l *WebsocketListener) HandleWebsocketConnection(w http.ResponseWriter, r *
 		return nil
 	}
 
-	metadata := shared.ParseClientMetadataFromHeaders(r)
+	metadata := domain.ParseClientMetadataFromHeaders(r)
 	newClient := NewWebsocketClient(conn, l.logger, metadata)
-	l.joinCh <- domain.NewPlayer(newClient, metadata)
+	l.joinCh <- server.NewPlayer(newClient, metadata)
 	return nil
 }

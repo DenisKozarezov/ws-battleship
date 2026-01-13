@@ -2,20 +2,40 @@ package domain
 
 import (
 	"fmt"
-	"math/rand"
+	"ws-battleship-server/internal/delivery/websocket"
 	"ws-battleship-shared/domain"
 )
 
-type Player struct {
-	Client
-	Model *domain.PlayerModel
+type VisibleCell struct {
+	X, Y byte
 }
 
-func NewPlayer(client Client, metadata domain.ClientMetadata) *Player {
+type Player struct {
+	websocket.Client
+	Model      *domain.PlayerModel
+	visibility []VisibleCell
+}
+
+func NewPlayer(client websocket.Client, metadata domain.ClientMetadata) *Player {
+	model := domain.NewPlayerModel(domain.RandomizeBoard(), metadata)
 	return &Player{
-		Model:  domain.NewPlayerModel(randomizeBoard(), metadata),
+		Model:  model,
 		Client: client,
 	}
+}
+
+func (p *Player) Equal(rhs *Player) bool {
+	if rhs == nil {
+		return false
+	}
+	return p.Model.Equal(rhs.Model)
+}
+
+func (p *Player) Compare(rhs *Player) int {
+	if rhs == nil {
+		return -1
+	}
+	return p.Model.Compare(rhs.Model)
 }
 
 func (p *Player) String() string {
@@ -26,85 +46,21 @@ func (p *Player) Nickname() string {
 	return p.Model.Nickname
 }
 
-func randomizeBoard() domain.Board {
-	ships := [...]int{4, 3, 3, 2, 2, 2, 1, 1, 1, 1}
-
-	for {
-		var board domain.Board
-		ok := true
-
-		for _, size := range ships {
-			placed := false
-
-			for attempts := 0; attempts < 1000; attempts++ {
-				x := rand.Intn(board.Size())
-				y := rand.Intn(board.Size())
-				horizontal := rand.Intn(2) == 0
-
-				if canPlace(&board, x, y, size, horizontal) {
-					placeShip(&board, x, y, size, horizontal)
-					placed = true
-					break
-				}
-			}
-
-			if !placed {
-				ok = false
-				break
-			}
-		}
-
-		if ok {
-			return board
-		}
-	}
+func (p *Player) RevealCell(cellX, cellY byte) {
+	p.visibility = append(p.visibility, VisibleCell{X: cellX, Y: cellY})
 }
 
-func canPlace(
-	board *domain.Board,
-	x, y int,
-	length int,
-	horizontal bool,
-) bool {
-	for i := 0; i < length; i++ {
-		nx, ny := x, y
-		if horizontal {
-			ny += i
-		} else {
-			nx += i
-		}
-
-		if nx < 0 || nx >= board.Size() || ny < 0 || ny >= board.Size() {
-			return false
-		}
-
-		for dx := -1; dx <= 1; dx++ {
-			for dy := -1; dy <= 1; dy++ {
-				cx := nx + dx
-				cy := ny + dy
-
-				if cx >= 0 && cx < board.Size() && cy >= 0 && cy < board.Size() {
-					if board[cx][cy] == domain.Ship {
-						return false
-					}
-				}
-			}
-		}
+func (p *Player) maskBoardForPlayer(targetPlayer *Player) domain.Board {
+	if targetPlayer == nil {
+		return p.Model.Board
 	}
-	return true
-}
 
-func placeShip(
-	board *domain.Board,
-	x, y int,
-	length int,
-	horizontal bool,
-) {
-	for i := 0; i < length; i++ {
-		if horizontal {
-			board[x][y+i] = domain.Ship
-		} else {
-			board[x+i][y] = domain.Ship
-		}
+	var copiedBoard domain.Board
+	for i := 0; i < len(targetPlayer.visibility); i++ {
+		visibleX := targetPlayer.visibility[i].X
+		visibleY := targetPlayer.visibility[i].Y
+		copiedBoard.SetCell(visibleX, visibleY, p.Model.Board.GetCellType(visibleX, visibleY))
 	}
+
+	return copiedBoard
 }

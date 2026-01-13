@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 	"ws-battleship-server/internal/config"
-	"ws-battleship-shared/domain"
+	"ws-battleship-server/internal/delivery/websocket"
 	"ws-battleship-shared/pkg/logger"
 
 	"github.com/stretchr/testify/mock"
@@ -14,22 +14,22 @@ import (
 func TestRoomCapacity(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
-		players  map[string]*Player
+		players  map[string]websocket.Client
 		expected int
 	}{
 		{
 			name:     "no players - zero capacity",
-			players:  map[string]*Player{},
+			players:  map[string]websocket.Client{},
 			expected: 0,
 		},
 		{
 			name:     "1 player = 1 capacity",
-			players:  map[string]*Player{"1": nil},
+			players:  map[string]websocket.Client{"1": nil},
 			expected: 1,
 		},
 		{
 			name: "3 players = 3 capacity",
-			players: map[string]*Player{
+			players: map[string]websocket.Client{
 				"1": nil,
 				"2": nil,
 				"3": nil,
@@ -39,7 +39,7 @@ func TestRoomCapacity(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			// 1. Arrange
-			room := Room{players: tt.players}
+			room := Room{clients: tt.players}
 
 			// 2. Act
 			got := room.Capacity()
@@ -53,19 +53,19 @@ func TestRoomCapacity(t *testing.T) {
 func TestRoomIsFull(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		players     map[string]*Player
+		players     map[string]websocket.Client
 		capacityMax int32
 		expected    bool
 	}{
 		{
 			name:        "no players, room is not full",
-			players:     map[string]*Player{},
+			players:     map[string]websocket.Client{},
 			capacityMax: 3,
 			expected:    false,
 		},
 		{
 			name: "2 players out of 3, room is not full yet",
-			players: map[string]*Player{
+			players: map[string]websocket.Client{
 				"1": nil,
 				"2": nil,
 			},
@@ -74,7 +74,7 @@ func TestRoomIsFull(t *testing.T) {
 		},
 		{
 			name: "3 players out of 3, room is full",
-			players: map[string]*Player{
+			players: map[string]websocket.Client{
 				"1": nil,
 				"2": nil,
 				"3": nil,
@@ -84,7 +84,7 @@ func TestRoomIsFull(t *testing.T) {
 		},
 		{
 			name: "4 players out of 3, room is full",
-			players: map[string]*Player{
+			players: map[string]websocket.Client{
 				"1": nil,
 				"2": nil,
 				"3": nil,
@@ -98,7 +98,7 @@ func TestRoomIsFull(t *testing.T) {
 			// 1. Arrange
 			room := Room{
 				cfg:     &config.AppConfig{RoomCapacityMax: tt.capacityMax},
-				players: tt.players,
+				clients: tt.players,
 			}
 
 			// 2. Act
@@ -131,7 +131,7 @@ func TestCloseRoom(t *testing.T) {
 
 	t.Run("close a room with some players", func(t *testing.T) {
 		// 1. Arrange
-		mockClient := new(MockClient)
+		mockClient := new(websocket.MockClient)
 		mockClient.On("Close").Return(nil)
 		mockClient.On("ID").Return("123")
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
@@ -145,7 +145,7 @@ func TestCloseRoom(t *testing.T) {
 			KeepAlivePeriod: time.Second * 5,
 		}, loggerMock)
 
-		err := room.registerNewPlayer(NewPlayer(mockClient, domain.ClientMetadata{}))
+		err := room.registerNewClient(mockClient)
 		require.NoError(t, err)
 
 		// 2. Act
@@ -158,7 +158,7 @@ func TestCloseRoom(t *testing.T) {
 
 	t.Run("idempotent close", func(t *testing.T) {
 		// 1. Arrange
-		mockClient := new(MockClient)
+		mockClient := new(websocket.MockClient)
 		mockClient.On("Close").Return(nil)
 		mockClient.On("ID").Return("123")
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
@@ -172,7 +172,7 @@ func TestCloseRoom(t *testing.T) {
 			KeepAlivePeriod: time.Second * 5,
 		}, loggerMock)
 
-		err := room.registerNewPlayer(NewPlayer(mockClient, domain.ClientMetadata{}))
+		err := room.registerNewClient(mockClient)
 		require.NoError(t, err)
 
 		// 2. Act
@@ -188,7 +188,7 @@ func TestCloseRoom(t *testing.T) {
 func TestRegisterNewPlayer(t *testing.T) {
 	t.Run("register a new player", func(t *testing.T) {
 		// 1. Arrange
-		mockClient := new(MockClient)
+		mockClient := new(websocket.MockClient)
 		mockClient.On("Close").Return(nil)
 		mockClient.On("ID").Return("123")
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
@@ -200,32 +200,29 @@ func TestRegisterNewPlayer(t *testing.T) {
 		}, nil)
 
 		// 2. Act
-		newPlayer := NewPlayer(mockClient, domain.ClientMetadata{})
-		err := room.registerNewPlayer(newPlayer)
+		err := room.registerNewClient(mockClient)
 
 		// 3. Assert
 		require.NoError(t, err)
 		require.Equalf(t, 1, room.Capacity(), "there should be 1 player")
-		for id := range room.players {
-			require.Equalf(t, newPlayer.ID(), id, "expected player '%s', but got wrong player '%s'", newPlayer.ID(), id)
-		}
+		require.Containsf(t, room.GetClients(), mockClient, "expected player '%s', but got wrong player")
 	})
 
 	t.Run("register some new players", func(t *testing.T) {
 		// 1. Arrange
-		mockClient1 := new(MockClient)
+		mockClient1 := new(websocket.MockClient)
 		mockClient1.On("Close").Return(nil)
 		mockClient1.On("ID").Return("123")
 		mockClient1.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient1.On("WriteMessages", mock.Anything).Return()
 
-		mockClient2 := new(MockClient)
+		mockClient2 := new(websocket.MockClient)
 		mockClient2.On("Close").Return(nil)
 		mockClient2.On("ID").Return("456")
 		mockClient2.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient2.On("WriteMessages", mock.Anything).Return()
 
-		mockClient3 := new(MockClient)
+		mockClient3 := new(websocket.MockClient)
 		mockClient3.On("Close").Return(nil)
 		mockClient3.On("ID").Return("567")
 		mockClient3.On("ReadMessages", mock.Anything, mock.Anything).Return()
@@ -237,9 +234,9 @@ func TestRegisterNewPlayer(t *testing.T) {
 		}, nil)
 
 		// 2. Act
-		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{})))
-		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{})))
-		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{})))
+		require.NoError(t, room.registerNewClient(mockClient1))
+		require.NoError(t, room.registerNewClient(mockClient2))
+		require.NoError(t, room.registerNewClient(mockClient3))
 
 		// 3. Assert
 		require.Equalf(t, 3, room.Capacity(), "there should be 3 players")
@@ -247,19 +244,19 @@ func TestRegisterNewPlayer(t *testing.T) {
 
 	t.Run("check we can't register a new player when room is full", func(t *testing.T) {
 		// 1. Arrange
-		mockClient1 := new(MockClient)
+		mockClient1 := new(websocket.MockClient)
 		mockClient1.On("Close").Return(nil)
 		mockClient1.On("ID").Return("123")
 		mockClient1.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient1.On("WriteMessages", mock.Anything).Return()
 
-		mockClient2 := new(MockClient)
+		mockClient2 := new(websocket.MockClient)
 		mockClient2.On("Close").Return(nil)
 		mockClient2.On("ID").Return("456")
 		mockClient2.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient2.On("WriteMessages", mock.Anything).Return()
 
-		mockClient3 := new(MockClient)
+		mockClient3 := new(websocket.MockClient)
 		mockClient3.On("Close").Return(nil)
 		mockClient3.On("ID").Return("567")
 		mockClient3.On("ReadMessages", mock.Anything, mock.Anything).Return()
@@ -271,9 +268,9 @@ func TestRegisterNewPlayer(t *testing.T) {
 		}, nil)
 
 		// 2. Act
-		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient1, domain.ClientMetadata{})))
-		require.NoError(t, room.registerNewPlayer(NewPlayer(mockClient2, domain.ClientMetadata{})))
-		err := room.registerNewPlayer(NewPlayer(mockClient3, domain.ClientMetadata{}))
+		require.NoError(t, room.registerNewClient(mockClient1))
+		require.NoError(t, room.registerNewClient(mockClient2))
+		err := room.registerNewClient(mockClient3)
 
 		// 3. Assert
 		require.ErrorIsf(t, err, ErrRoomIsFull, "room must be full")
@@ -282,7 +279,7 @@ func TestRegisterNewPlayer(t *testing.T) {
 
 	t.Run("check we can't register the same player two or more times", func(t *testing.T) {
 		// 1. Arrange
-		mockClient := new(MockClient)
+		mockClient := new(websocket.MockClient)
 		mockClient.On("Close").Return(nil)
 		mockClient.On("ID").Return("123")
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
@@ -293,12 +290,10 @@ func TestRegisterNewPlayer(t *testing.T) {
 			KeepAlivePeriod: time.Second * 5,
 		}, nil)
 
-		newPlayer := NewPlayer(mockClient, domain.ClientMetadata{})
-
 		// 2. Act and Assert
-		require.NoError(t, room.registerNewPlayer(newPlayer))
-		require.ErrorIsf(t, room.registerNewPlayer(newPlayer), ErrPlayerAlreadyInRoom, "we shouldn't register the same player")
-		require.ErrorIsf(t, room.registerNewPlayer(newPlayer), ErrPlayerAlreadyInRoom, "we shouldn't register the same player")
+		require.NoError(t, room.registerNewClient(mockClient))
+		require.ErrorIsf(t, room.registerNewClient(mockClient), ErrPlayerAlreadyInRoom, "we shouldn't register the same player")
+		require.ErrorIsf(t, room.registerNewClient(mockClient), ErrPlayerAlreadyInRoom, "we shouldn't register the same player")
 		require.Equalf(t, 1, room.Capacity(), "there should be only 1 player")
 	})
 }
@@ -306,21 +301,20 @@ func TestRegisterNewPlayer(t *testing.T) {
 func TestUnregisterPlayer(t *testing.T) {
 	t.Run("unregister 1 player", func(t *testing.T) {
 		// 1. Arrange
-		mockClient := new(MockClient)
+		mockClient := new(websocket.MockClient)
 		mockClient.On("Close").Return(nil)
 		mockClient.On("ID").Return("123")
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient.On("WriteMessages", mock.Anything).Return()
 
-		player := NewPlayer(mockClient, domain.ClientMetadata{})
 		room := Room{
-			players: map[string]*Player{
-				"123": player,
+			clients: map[string]websocket.Client{
+				"123": mockClient,
 			},
 		}
 
 		// 2. Act
-		err := room.unregisterPlayer(player)
+		err := room.unregisterClient(mockClient)
 
 		// 3. Assert
 		require.NoError(t, err)
@@ -329,23 +323,22 @@ func TestUnregisterPlayer(t *testing.T) {
 
 	t.Run("check we can't unregister the same player two or more times", func(t *testing.T) {
 		// 1. Arrange
-		mockClient := new(MockClient)
+		mockClient := new(websocket.MockClient)
 		mockClient.On("Close").Return(nil)
 		mockClient.On("ID").Return("123")
 		mockClient.On("ReadMessages", mock.Anything, mock.Anything).Return()
 		mockClient.On("WriteMessages", mock.Anything).Return()
 
-		player := NewPlayer(mockClient, domain.ClientMetadata{})
 		room := Room{
-			players: map[string]*Player{
-				"123": player,
+			clients: map[string]websocket.Client{
+				"123": mockClient,
 			},
 		}
 
 		// 2. Act and Asssert
-		require.NoError(t, room.unregisterPlayer(player))
-		require.ErrorIsf(t, room.unregisterPlayer(player), ErrPlayerNotExist, "player shouldn't exist after first remove")
-		require.ErrorIsf(t, room.unregisterPlayer(player), ErrPlayerNotExist, "player shouldn't exist after first remove")
+		require.NoError(t, room.unregisterClient(mockClient))
+		require.ErrorIsf(t, room.unregisterClient(mockClient), ErrPlayerNotExist, "player shouldn't exist after first remove")
+		require.ErrorIsf(t, room.unregisterClient(mockClient), ErrPlayerNotExist, "player shouldn't exist after first remove")
 		require.Zerof(t, room.Capacity(), "there should be 0 players")
 	})
 }

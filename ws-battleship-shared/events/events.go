@@ -74,33 +74,32 @@ func NewPlayerLeftEvent(leftPlayer *domain.PlayerModel) (Event, error) {
 }
 
 type PlayerTurnEvent struct {
-	TurningPlayer *domain.PlayerModel `json:"turning_player"`
-	TargetPlayer  *domain.PlayerModel `json:"target_player"`
-	RemainingTime time.Duration       `json:"remaining_time"`
+	TurnCount       int           `json:"turn_count"`
+	TurningPlayerID string        `json:"turning_player_id"`
+	RemainingTime   time.Duration `json:"remaining_time"`
 }
 
-func NewPlayerTurnEvent(turningPlayer, targetPlayer *domain.PlayerModel, remainingTime time.Duration) (Event, error) {
+func NewPlayerTurnEvent(turnCount int, turningPlayerID string, remainingTime time.Duration) (Event, error) {
 	return NewEvent(PlayerTurnEventType, PlayerTurnEvent{
-		TurningPlayer: turningPlayer,
-		TargetPlayer:  targetPlayer,
-		RemainingTime: remainingTime,
+		TurnCount:       turnCount,
+		TurningPlayerID: turningPlayerID,
+		RemainingTime:   remainingTime,
 	})
 }
 
 type PlayerFireEvent struct {
-	PlayerID       domain.ClientID `json:"player_id"`
-	PlayerNickname string          `json:"nickname"`
+	FireCommandArgs
+}
+
+type FireCommandArgs struct {
+	FiringPlayerID domain.ClientID `json:"firing_player_id"`
+	TargetPlayerID domain.ClientID `json:"target_player_id"`
 	CellX          byte            `json:"cell_x"`
 	CellY          byte            `json:"cell_y"`
 }
 
-func NewPlayerFireEvent(metadata domain.ClientMetadata, cellX, cellY byte) (Event, error) {
-	return NewEvent(PlayerFireEventType, PlayerFireEvent{
-		PlayerID:       metadata.ClientID,
-		PlayerNickname: metadata.Nickname,
-		CellX:          cellX,
-		CellY:          cellY,
-	})
+func NewPlayerFireEvent(args FireCommandArgs) (Event, error) {
+	return NewEvent(PlayerFireEventType, PlayerFireEvent{FireCommandArgs: args})
 }
 
 type GameStartEvent struct{}
