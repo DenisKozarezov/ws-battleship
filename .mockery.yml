@@ -1,7 +1,7 @@
 filename: "{{.InterfaceName}}_mock.go"
 inpackage: true
 packages:
-  ws-battleship-server/internal/domain:
+  ws-battleship-server/internal/delivery/websocket:
     interfaces:
       Client:
   ws-battleship-shared/pkg/logger:
