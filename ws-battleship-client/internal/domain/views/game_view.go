@@ -122,6 +122,7 @@ func (v *GameView) StartGame() {
 
 func (v *GameView) EndGame() {
 	v.gameTickerView.Stop()
+	v.turnTimerView.Stop()
 
 	if v.yourBoard != nil {
 		v.yourBoard.SetSelectable(false)
