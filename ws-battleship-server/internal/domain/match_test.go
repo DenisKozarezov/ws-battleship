@@ -62,7 +62,7 @@ func TestCheckIsAvailableForJoin(t *testing.T) {
 				RoomCapacityMax: 5,
 			},
 		}, loggerMock)
-		match.isStarted = true
+		match.isStarted.Store(true)
 
 		// 2. Act
 		err := match.CheckIsAvailableForJoin()

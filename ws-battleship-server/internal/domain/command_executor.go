@@ -13,4 +13,5 @@ type CommandExecutor interface {
 	JoinNewPlayer(joinedPlayer *Player) error
 	StartMatch() error
 	EndMatch(winningPlayer *Player) error
+	Close() error
 }

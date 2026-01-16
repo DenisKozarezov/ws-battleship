@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 	"ws-battleship-server/internal/config"
 	"ws-battleship-shared/domain"
@@ -14,17 +15,17 @@ import (
 )
 
 type Match struct {
-	ctx     context.Context
 	closeCh chan struct{}
 	wg      sync.WaitGroup
 	once    sync.Once
+	mu      sync.RWMutex
 
 	room   *Room
 	cfg    *config.Config
 	logger logger.Logger
 
-	isStarted        bool
-	isClosed         bool
+	isStarted        atomic.Bool
+	isClosed         atomic.Bool
 	gameTurnTimer    *time.Timer
 	players          map[string]*Player
 	turningPlayer    *Player
@@ -37,12 +38,11 @@ type Match struct {
 
 func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Match {
 	match := &Match{
-		ctx:           ctx,
 		closeCh:       make(chan struct{}),
 		room:          NewRoom(ctx, &cfg.App, logger),
 		cfg:           cfg,
 		logger:        logger,
-		gameTurnTimer: time.NewTimer(cfg.Game.GameTurnTime),
+		gameTurnTimer: time.NewTimer(0),
 		players:       make(map[string]*Player, cfg.App.ClientsConnectionsMax),
 		cmds:          make(chan Command, 10),
 		eventBus:      events.NewEventBus(),
@@ -53,7 +53,7 @@ func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Ma
 	match.eventBus.Subscribe(events.SendMessageType, match.onPlayerSentMessageHandler)
 	match.eventBus.Subscribe(events.PlayerFireEventType, match.onPlayerFiredHandler)
 
-	match.gameTurnTimer.Stop()
+	<-match.gameTurnTimer.C
 	match.wg.Add(1)
 	go match.gameLoop(ctx)
 
@@ -80,7 +80,7 @@ func (m *Match) Compare(rhs *Match) int {
 
 func (m *Match) Close() error {
 	m.once.Do(func() {
-		m.isClosed = true
+		m.isClosed.Store(true)
 		close(m.closeCh)
 		close(m.cmds)
 		m.logger.Infof("match id=%s is closing...", m.ID())
@@ -107,9 +107,9 @@ func (m *Match) JoinNewPlayer(newPlayer *Player) error {
 
 func (m *Match) CheckIsAvailableForJoin() error {
 	switch {
-	case m.isClosed:
+	case m.isClosed.Load():
 		return ErrRoomIsClosed
-	case m.isStarted:
+	case m.isStarted.Load():
 		return ErrAlreadyStarted
 	case m.room.IsFull():
 		return ErrRoomIsFull
@@ -118,11 +118,11 @@ func (m *Match) CheckIsAvailableForJoin() error {
 }
 
 func (m *Match) IsReadyToStart() bool {
-	return !m.isClosed && !m.isStarted && m.room.IsFull()
+	return !m.isClosed.Load() && !m.isStarted.Load() && m.room.IsFull()
 }
 
 func (m *Match) StartMatch() error {
-	m.isStarted = true
+	m.isStarted.Store(true)
 
 	event, err := events.NewGameStartEvent()
 	if err != nil {
@@ -150,7 +150,8 @@ func (m *Match) EndMatch(winningPlayer *Player) error {
 
 	_ = m.SendNotification(fmt.Sprintf("Player '%s' has won!", winningPlayer.Nickname()), events.RoomNotificationType)
 
-	return m.Close()
+	m.Dispatch(NewCloseMatchCommand())
+	return nil
 }
 
 func (m *Match) GiveTurnToNextPlayer() error {
@@ -277,6 +278,7 @@ func (m *Match) gameLoop(ctx context.Context) {
 			}
 			if err := cmd.Execute(m); err != nil {
 				m.logger.Errorf("failed to execute a command: %s", err)
+				m.Dispatch(NewCloseMatchCommand())
 			}
 
 		case msg, opened := <-m.room.Events():
