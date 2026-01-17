@@ -64,32 +64,34 @@ func (r *Room) ID() string {
 	return r.id
 }
 
-func (c *Room) Equal(rhs *Room) bool {
+func (r *Room) Equal(rhs *Room) bool {
 	if rhs == nil {
 		return false
 	}
-	return c.ID() == rhs.ID()
+	return r.ID() == rhs.ID()
 }
 
-func (c *Room) Compare(rhs *Room) int {
+func (r *Room) Compare(rhs *Room) int {
 	if rhs == nil {
 		return -1
 	}
-	return strings.Compare(c.ID(), rhs.ID())
+	return strings.Compare(r.ID(), rhs.ID())
 }
 
 func (r *Room) Close() error {
 	r.once.Do(func() {
 		close(r.closeCh)
 		r.logger.Infof("room id=%s [clients: %d] is closing...", r.ID(), r.Capacity())
-	})
 
-	for _, client := range r.GetClients() {
-		if err := r.unregisterClient(client); err != nil {
-			return err
+		for _, client := range r.GetClients() {
+			if err := r.unregisterClient(client); err != nil {
+				r.logger.Errorf("failed to unregister a client_id=%s: %s", client.ID(), err)
+			}
 		}
-	}
-	r.wg.Wait()
+		r.wg.Wait()
+
+		close(r.messagesCh)
+	})
 
 	r.logger.Infof("all clients in room id=%s were unregistered", r.ID())
 	r.logger.Infof("room id=%s is closed", r.ID())

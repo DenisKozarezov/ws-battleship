@@ -46,11 +46,9 @@ func (m *Match) onPlayerJoinedHandler(joinedClient websocket.Client) {
 		m.logger.Error(err)
 	}
 
-	if !m.IsReadyToStart() {
-		return
+	if m.IsReadyToStart() {
+		m.Dispatch(NewGameStartCommand(m.logger))
 	}
-
-	m.Dispatch(NewGameStartCommand(m.logger))
 }
 
 func (m *Match) onPlayerLeftHandler(leftClient websocket.Client) {

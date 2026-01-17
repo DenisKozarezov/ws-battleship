@@ -16,6 +16,7 @@ import (
 
 type Match struct {
 	closeCh chan struct{}
+	cancel  context.CancelFunc
 	wg      sync.WaitGroup
 	once    sync.Once
 	mu      sync.RWMutex
@@ -37,9 +38,12 @@ type Match struct {
 }
 
 func NewMatch(ctx context.Context, cfg *config.Config, logger logger.Logger) *Match {
+	matchCtx, cancel := context.WithCancel(ctx)
+
 	match := &Match{
 		closeCh:       make(chan struct{}),
-		room:          NewRoom(ctx, &cfg.App, logger),
+		cancel:        cancel,
+		room:          NewRoom(matchCtx, &cfg.App, logger),
 		cfg:           cfg,
 		logger:        logger,
 		gameTurnTimer: time.NewTimer(0),
@@ -81,6 +85,7 @@ func (m *Match) Compare(rhs *Match) int {
 func (m *Match) Close() error {
 	m.once.Do(func() {
 		m.isClosed.Store(true)
+		m.cancel()
 		close(m.closeCh)
 		close(m.cmds)
 		m.logger.Infof("match id=%s is closing...", m.ID())
@@ -217,6 +222,9 @@ func (m *Match) Fire(args events.FireCommandArgs) error {
 }
 
 func (m *Match) Dispatch(cmd Command) {
+	if m.isClosed.Load() {
+		return
+	}
 	m.cmds <- cmd
 }
 
