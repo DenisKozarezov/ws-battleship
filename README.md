@@ -25,7 +25,7 @@ go run ws-battleship-client/cmd/main.go
 
 Local Multiplayer is available at your `localhost:8080`, so try to connect to `127.0.0.1` or `0.0.0.0` IP-address of the running server.
 
-> [!INFO]
+> [!NOTE]
 > Server is configured at port :8080 by default.
 
 ## Demo
@@ -36,7 +36,7 @@ Local Multiplayer is available at your `localhost:8080`, so try to connect to `1
 
 ### 2. Multiplayer Game
 
-<img width="1280" src="docs/game.gif" />
+<img width="1280" src="docs/multiplayer.gif" />
 
 ### 3. Chat
 
