@@ -37,14 +37,14 @@ Local Multiplayer is available at your `localhost:8080`, so try to connect to `1
 
 ## Demo
 
-### 1. Main Menu
+### 1. Main Menu ([GIF](docs/main-menu-connect-error.gif))
 
 <img width="1280" src="docs/main-menu-connect-error.gif" />
 
-### 2. Multiplayer Game
+### 2. Multiplayer Game ([GIF](docs/multiplayer.gif))
 
 <img width="1280" src="docs/multiplayer.gif" />
 
-### 3. Chat
+### 3. Chat ([GIF](docs/chat.gif))
 
 <img width="1280" src="docs/chat.gif" />
