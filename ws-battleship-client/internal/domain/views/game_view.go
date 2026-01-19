@@ -73,7 +73,7 @@ func (v *GameView) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
 			return v, tea.Quit
-		case tea.KeyEnter:
+		case tea.KeyTab:
 			if v.isLocalPlayerTurn {
 				v.onPlayerFiredHandler()
 			}
@@ -170,7 +170,7 @@ func (v *GameView) renderGameTurn() string {
 	turn = lipgloss.JoinVertical(lipgloss.Center, turn, v.turnTimerView.View())
 
 	if v.isLocalPlayerTurn {
-		help := helpStyle.Align(lipgloss.Center).Render("Press ↑ ↓ → ← to Navigate\nPress Enter to Fire")
+		help := helpStyle.Align(lipgloss.Center).Render("Press ↑ ↓ → ← to Navigate\nPress Tab to Fire")
 		return lipgloss.PlaceHorizontal(30, lipgloss.Center, turn+"\n\n"+help)
 	} else {
 		return lipgloss.PlaceHorizontal(30, lipgloss.Center, turn)

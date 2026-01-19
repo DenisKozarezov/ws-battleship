@@ -4,6 +4,7 @@
 
 [Tt]emp
 [Bb]uild
+[Bb]in
 
 # ignore credentials
 .env
