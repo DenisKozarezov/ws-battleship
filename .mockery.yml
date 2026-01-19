@@ -1,6 +1,9 @@
 filename: "{{.InterfaceName}}_mock.go"
 inpackage: true
 packages:
+  ws-battleship-client/internal/delivery/websocket:
+    interfaces:
+      Client:
   ws-battleship-server/internal/delivery/websocket:
     interfaces:
       Client:
