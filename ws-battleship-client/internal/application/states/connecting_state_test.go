@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 	client "ws-battleship-client/internal/delivery/websocket"
 
 	"github.com/stretchr/testify/mock"
@@ -60,6 +61,7 @@ func TestConnectingStateErrorCallbacks(t *testing.T) {
 			state.OnEnter()
 
 			// 3. Assert
+			time.Sleep(time.Millisecond * 100)
 			if tt.err != nil {
 				require.Error(t, callbackErr)
 				require.ErrorContains(t, tt.err, callbackErr.Error())
@@ -113,6 +115,7 @@ func TestConnectingStateSuccessCallbacks(t *testing.T) {
 			state.OnEnter()
 
 			// 3. Assert
+			time.Sleep(time.Millisecond * 100)
 			require.Equal(t, tt.callbackCalled, callbackCalled)
 		})
 	}

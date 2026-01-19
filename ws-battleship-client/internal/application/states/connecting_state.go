@@ -47,7 +47,7 @@ func (s *ConnectingState) OnEnter() {
 	const timeout = 5 * time.Second
 	var ctx context.Context
 	ctx, s.cancel = context.WithTimeout(s.stateMachine.Context(), timeout)
-	s.startClient(ctx)
+	go s.startClient(ctx)
 }
 
 func (s *ConnectingState) FixedUpdate() {

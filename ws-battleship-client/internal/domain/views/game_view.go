@@ -131,7 +131,7 @@ func (v *GameView) SetGameModel(gameModel *domain.GameModel) {
 
 	for playerID, player := range gameModel.Players {
 		if playerID == v.localPlayerID {
-			v.yourBoard.SetPlayer(gameModel.Players[v.localPlayerID])
+			v.yourBoard.SetPlayer(gameModel.Players[playerID])
 		} else {
 			v.enemyBoard.SetPlayer(player)
 		}
