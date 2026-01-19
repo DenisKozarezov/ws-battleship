@@ -3,6 +3,7 @@ package states
 import (
 	"net"
 	"time"
+	"ws-battleship-client/internal/delivery/websocket"
 	"ws-battleship-client/internal/domain/views"
 	"ws-battleship-shared/pkg/logger"
 
@@ -43,13 +44,13 @@ func (s *MainMenuState) View() tea.Model {
 func (s *MainMenuState) onPlayerConnecting(ipv4 net.IP) {
 	connectionState := NewConnectingState(s.stateMachine, ipv4, s.logger)
 
-	// If connection to server succeeded, then switch to game boards
-	connectionState.SetOnSuccess(func(client Client) {
+	// If connection succeeds, proceed to game state.
+	connectionState.SetOnSuccess(func(client websocket.Client) {
 		time.Sleep(time.Second)
 		s.stateMachine.SwitchState(NewGameState(s.stateMachine, client, s.logger))
 	})
 
-	// If connection to server failed, then return to main menu
+	// On connection failure, return to main menu and display error to user.
 	connectionState.SetOnError(func(err error) {
 		s.menuView.IPv4Error = err
 		s.stateMachine.SwitchState(s)

@@ -19,13 +19,12 @@ type ConnectingState struct {
 	stateMachine StateMachine
 	cancel       context.CancelFunc
 
-	logger logger.Logger
-	client Client
+	client client.Client
 	ipv4   net.IP
 
 	connectServerView *views.ConnectServerView
 
-	onSuccess func(client Client)
+	onSuccess func(client client.Client)
 	onError   func(err error)
 }
 
@@ -34,7 +33,6 @@ func NewConnectingState(stateMachine StateMachine, ipv4 net.IP, logger logger.Lo
 
 	return &ConnectingState{
 		stateMachine:      stateMachine,
-		logger:            logger,
 		client:            client.NewClient(stateMachine.Context(), logger, metadata),
 		ipv4:              ipv4,
 		connectServerView: views.NewConnectServerView(),
@@ -46,9 +44,10 @@ func (s *ConnectingState) OnExit() {
 }
 
 func (s *ConnectingState) OnEnter() {
+	const timeout = 5 * time.Second
 	var ctx context.Context
-	ctx, s.cancel = context.WithTimeout(s.stateMachine.Context(), 5*time.Second)
-	go s.startClient(ctx)
+	ctx, s.cancel = context.WithTimeout(s.stateMachine.Context(), timeout)
+	s.startClient(ctx)
 }
 
 func (s *ConnectingState) FixedUpdate() {
@@ -59,7 +58,7 @@ func (s *ConnectingState) View() tea.Model {
 	return s.connectServerView
 }
 
-func (s *ConnectingState) SetOnSuccess(fn func(client Client)) {
+func (s *ConnectingState) SetOnSuccess(fn func(client client.Client)) {
 	s.onSuccess = fn
 }
 
@@ -81,10 +80,9 @@ func (s *ConnectingState) startClient(ctx context.Context) {
 			case websocket.ErrBadHandshake:
 				err = ErrInvalidAddress
 			}
-
-			s.onError(errors.Join(errors.New("unable to connect to the server:"), err))
-			return
+			s.onError(err)
 		}
+		return
 	}
 
 	if s.onSuccess != nil {

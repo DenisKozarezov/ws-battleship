@@ -130,12 +130,7 @@ func (a *App) runRenderLoop(ctx context.Context, wg *sync.WaitGroup) {
 
 				clearTerminal()
 
-				currentProgram = tea.NewProgram(
-					currentView,
-					tea.WithContext(ctx),
-					tea.WithAltScreen(),
-				)
-
+				currentProgram = tea.NewProgram(currentView, tea.WithContext(ctx), tea.WithAltScreen())
 				go func(p *tea.Program) {
 					if _, err := p.Run(); err != nil {
 						if !errors.Is(err, tea.ErrProgramKilled) {

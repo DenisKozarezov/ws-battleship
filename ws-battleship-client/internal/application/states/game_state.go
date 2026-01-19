@@ -2,8 +2,8 @@ package states
 
 import (
 	"context"
-	"net"
 	"sync"
+	"ws-battleship-client/internal/delivery/websocket"
 	clientEvents "ws-battleship-client/internal/domain/events"
 	"ws-battleship-client/internal/domain/views"
 	"ws-battleship-shared/domain"
@@ -13,26 +13,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type Client interface {
-	Metadata() domain.ClientMetadata
-	Messages() <-chan serverEvents.Event
-	Connect(ctx context.Context, ipv4 net.IP) error
-	Shutdown() error
-	SendMessage(e serverEvents.Event) error
-}
-
 type GameState struct {
 	logger logger.Logger
 	wg     sync.WaitGroup
 
 	stateMachine StateMachine
-	client       Client
+	client       websocket.Client
 	metadata     domain.ClientMetadata
 	eventBus     *serverEvents.EventBus
 	gameView     *views.GameView
 }
 
-func NewGameState(stateMachine StateMachine, client Client, logger logger.Logger) *GameState {
+func NewGameState(stateMachine StateMachine, client websocket.Client, logger logger.Logger) *GameState {
 	eventBus := serverEvents.NewEventBus()
 
 	return &GameState{

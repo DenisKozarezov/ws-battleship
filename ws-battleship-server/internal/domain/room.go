@@ -212,9 +212,9 @@ func (r *Room) pingClients(ctx context.Context) {
 		case <-r.closeCh:
 			return
 
-		// We should periodically send a ping-message to all clients just to be ensured, that the clients
-		// are still alive. If no, then the server unregisters potentially dead clients. There are literally
-		// zero reasons to keep stalled connections alive, so the server deallocates them for other needs.
+		// Health check: ping all connected clients at regular intervals.
+		// Clients that fail to respond are considered dead and disconnected.
+		// This prevents resource leaks from abandoned connections.
 		case <-pingTicker.C:
 			for _, client := range r.GetClients() {
 				if err := client.Ping(); err != nil {

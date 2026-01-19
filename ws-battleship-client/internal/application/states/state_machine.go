@@ -15,7 +15,6 @@ type State interface {
 
 type StateMachine interface {
 	Context() context.Context
-	CurrentState() State
 	SwitchState(newState State)
 	FixedUpdate()
 }
