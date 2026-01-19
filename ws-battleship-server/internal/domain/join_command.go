@@ -12,6 +12,6 @@ func NewJoinCommand(logger logger.Logger, player *Player) *JoinCommand {
 }
 
 func (c *JoinCommand) Execute(executor CommandExecutor) error {
-	c.logger.Infof("player '%s' is joining...", c.player.String())
+	c.logger.Infof("player '%s' is joining...", c.player)
 	return executor.JoinNewPlayer(c.player)
 }

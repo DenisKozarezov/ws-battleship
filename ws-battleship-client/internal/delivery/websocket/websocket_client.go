@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"sync"
 	"time"
-	"ws-battleship-client/internal/config"
 	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
@@ -24,35 +24,41 @@ type WebsocketClient struct {
 	wg   sync.WaitGroup
 	ctx  context.Context
 
-	cfg     *config.AppConfig
 	logger  logger.Logger
 	conn    *websocket.Conn
 	readCh  chan events.Event
 	writeCh chan []byte
 	closeCh chan struct{}
+
+	metadata domain.ClientMetadata
 }
 
-func NewClient(ctx context.Context, cfg *config.AppConfig, logger logger.Logger) *WebsocketClient {
+func NewClient(ctx context.Context, logger logger.Logger, metadata domain.ClientMetadata) *WebsocketClient {
 	return &WebsocketClient{
-		ctx:     ctx,
-		cfg:     cfg,
-		logger:  logger,
-		readCh:  make(chan events.Event, events.ReadBufferBytesMax),
-		writeCh: make(chan []byte, events.WriteBufferBytesMax),
-		closeCh: make(chan struct{}),
+		ctx:      ctx,
+		logger:   logger,
+		readCh:   make(chan events.Event, events.ReadBufferBytesMax),
+		writeCh:  make(chan []byte, events.WriteBufferBytesMax),
+		closeCh:  make(chan struct{}),
+		metadata: metadata,
 	}
 }
 
-func (c *WebsocketClient) Connect(ctx context.Context, metadata domain.ClientMetadata) error {
+func (c *WebsocketClient) Metadata() domain.ClientMetadata {
+	return c.metadata
+}
+
+func (c *WebsocketClient) Connect(ctx context.Context, ipv4 net.IP) error {
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 10 * time.Second,
 		ReadBufferSize:   events.ReadBufferBytesMax,
 		WriteBufferSize:  events.WriteBufferBytesMax,
 	}
 
-	serverUrl := fmt.Sprintf("%s://%s%s", websocketProtocol, c.cfg.ServerHost, websocketEndpoint)
+	const port = 8080
+	serverUrl := fmt.Sprintf("%s://%s:%d%s", websocketProtocol, ipv4.String(), 8080, websocketEndpoint)
 
-	conn, _, err := dialer.DialContext(ctx, serverUrl, domain.ParseClientMetadataToHeaders(metadata))
+	conn, _, err := dialer.DialContext(ctx, serverUrl, domain.ParseClientMetadataToHeaders(c.metadata))
 	if err != nil {
 		return fmt.Errorf("failed to dial: %w", err)
 	}

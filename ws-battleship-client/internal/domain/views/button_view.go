@@ -117,6 +117,8 @@ func (v *ButtonView) SetFocus(isFocus bool) {
 
 	if isFocus {
 		v.currentStyle = &v.styles.focusedStyle
+	} else {
+		v.currentStyle = &v.styles.defaultStyle
 	}
 }
 

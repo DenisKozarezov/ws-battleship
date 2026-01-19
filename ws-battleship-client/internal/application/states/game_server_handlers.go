@@ -1,4 +1,4 @@
-package application
+package states
 
 import (
 	"fmt"
@@ -7,30 +7,30 @@ import (
 	"ws-battleship-shared/events"
 )
 
-func (a *App) onGameStartedHandler(e events.Event) error {
-	a.gameView.StartGame()
+func (s *GameState) onGameStartedHandler(e events.Event) error {
+	s.gameView.StartGame()
 	return nil
 }
 
-func (a *App) onGameEndHandler(e events.Event) error {
+func (s *GameState) onGameEndHandler(e events.Event) error {
 	if _, err := events.CastTo[events.GameEndEvent](e); err != nil {
 		return err
 	}
-	a.gameView.EndGame()
+	s.gameView.EndGame()
 	return nil
 }
 
-func (a *App) onPlayerUpdateState(e events.Event) error {
+func (s *GameState) onPlayerUpdateState(e events.Event) error {
 	playerUpdateEvent, err := events.CastTo[events.PlayerUpdateStateEvent](e)
 	if err != nil {
 		return err
 	}
 
-	a.gameView.SetGameModel(playerUpdateEvent.GameModel)
+	s.gameView.SetGameModel(playerUpdateEvent.GameModel)
 	return nil
 }
 
-func (a *App) onPlayerTurnHandler(e events.Event) error {
+func (a *GameState) onPlayerTurnHandler(e events.Event) error {
 	playerTurnEvent, err := events.CastTo[events.PlayerTurnEvent](e)
 	if err != nil {
 		return err
@@ -40,7 +40,7 @@ func (a *App) onPlayerTurnHandler(e events.Event) error {
 	return a.gameView.GiveTurnToPlayer(playerTurnEvent, isLocalPlayer)
 }
 
-func (a *App) onPlayerSendMessageHandler(e events.Event) error {
+func (s *GameState) onPlayerSendMessageHandler(e events.Event) error {
 	sendMessageEvent, err := events.CastTo[events.SendMessageEvent](e)
 	if err != nil {
 		return err
@@ -51,7 +51,7 @@ func (a *App) onPlayerSendMessageHandler(e events.Event) error {
 		return fmt.Errorf("failed to parse timestamp: %w", err)
 	}
 
-	return a.gameView.AppendMessageInChat(views.ChatMessage{
+	return s.gameView.AppendMessageInChat(views.ChatMessage{
 		Sender:    sendMessageEvent.Sender,
 		Message:   sendMessageEvent.Message,
 		Type:      sendMessageEvent.Type,

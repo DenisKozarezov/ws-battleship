@@ -2,18 +2,17 @@ package application
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
+	"ws-battleship-client/internal/application/states"
 	"ws-battleship-client/internal/config"
-	client "ws-battleship-client/internal/delivery/websocket"
-	clientEvents "ws-battleship-client/internal/domain/events"
 	"ws-battleship-client/internal/domain/views"
 	"ws-battleship-shared/domain"
 	"ws-battleship-shared/events"
 	"ws-battleship-shared/pkg/logger"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/google/uuid"
 )
 
 type Client interface {
@@ -24,42 +23,40 @@ type Client interface {
 }
 
 type App struct {
-	cfg      *config.Config
-	client   Client
-	logger   logger.Logger
-	gameView *views.GameView
-	metadata domain.ClientMetadata
-	eventBus *events.EventBus
+	ctx context.Context
+
+	renderCh chan tea.Model
+
+	cfg          *config.Config
+	logger       logger.Logger
+	stateMachine states.StateMachine
+	mainMenu     *views.MainMenuView
+	metadata     domain.ClientMetadata
 }
 
 func NewApp(ctx context.Context, cfg *config.Config, logger logger.Logger) *App {
-	metadata := domain.NewClientMetadata(uuid.New().Domain().String())
-	eventBus := events.NewEventBus()
+	stateMachine := states.NewStateMachine()
 
-	a := &App{
-		cfg:      cfg,
-		client:   client.NewClient(ctx, &cfg.App, logger),
-		logger:   logger,
-		gameView: views.NewGameView(eventBus, metadata),
-		metadata: metadata,
-		eventBus: eventBus,
+	app := &App{
+		ctx:          ctx,
+		renderCh:     make(chan tea.Model, 1),
+		cfg:          cfg,
+		logger:       logger,
+		stateMachine: stateMachine,
+		mainMenu:     views.NewMainMenuView(),
 	}
 
-	eventBus.Subscribe(events.GameStartEventType, a.onGameStartedHandler)
-	eventBus.Subscribe(events.GameEndEventType, a.onGameEndHandler)
-	eventBus.Subscribe(events.PlayerUpdateStateEventType, a.onPlayerUpdateState)
-	eventBus.Subscribe(events.PlayerTurnEventType, a.onPlayerTurnHandler)
-	eventBus.Subscribe(events.SendMessageType, a.onPlayerSendMessageHandler)
-	eventBus.Subscribe(clientEvents.PlayerTypedMessageType, a.onPlayerTypedMessage)
-	a.gameView.SetPlayerFiredHandler(a.onPlayerPressedFireHandler)
+	stateMachine.SetStateSwitchedHandler(app.onApplicationStateSwitched)
 
-	return a
+	return app
 }
 
 func (a *App) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	a.startClient(ctx, &wg)
 	a.runGameLoop(ctx, &wg)
+	a.runRenderLoop(ctx, &wg)
+
+	a.stateMachine.SwitchState(states.NewMainMenuState(a.stateMachine, a.logger))
 
 	<-ctx.Done()
 	a.logger.Info("received a signal to shutdown the client")
@@ -73,44 +70,7 @@ func (a *App) Run(ctx context.Context) {
 
 func (a *App) Shutdown() error {
 	a.logger.Info("shutting the client down...")
-	return a.client.Shutdown()
-}
-
-func (a *App) startClient(ctx context.Context, wg *sync.WaitGroup) {
-	a.logger.Infof("connecting to server %s", a.cfg.App.ServerHost)
-
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		if err := a.client.Connect(ctx, a.metadata); err != nil {
-			a.logger.Fatalf("failed to connect to server: %s", err)
-		}
-	}()
-	go func() {
-		defer wg.Done()
-		a.handleConnection(ctx)
-	}()
-}
-
-func (a *App) handleConnection(ctx context.Context) {
-	for {
-		if err := ctx.Err(); err != nil {
-			return
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case msg, opened := <-a.client.Messages():
-			if !opened {
-				return
-			}
-
-			if err := a.eventBus.Invoke(msg); err != nil {
-				a.logger.Errorf("error while invoking event: %s", err)
-			}
-		}
-	}
+	return nil
 }
 
 func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
@@ -134,14 +94,60 @@ func (a *App) runGameLoop(ctx context.Context, wg *sync.WaitGroup) {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				a.gameView.FixedUpdate()
+				a.stateMachine.FixedUpdate()
 			}
 		}
 	}()
+}
 
-	clearTerminal()
-	if _, err := tea.NewProgram(a.gameView).Run(); err != nil {
-		a.logger.Fatalf("failed to run a game view: %s", err)
-	}
-	clearTerminal()
+func (a *App) runRenderLoop(ctx context.Context, wg *sync.WaitGroup) {
+	wg.Add(1)
+	go func() {
+		defer func() {
+			wg.Done()
+			close(a.renderCh)
+		}()
+
+		var currentProgram *tea.Program
+
+		for {
+			select {
+			case <-ctx.Done():
+				if currentProgram != nil {
+					currentProgram.Quit()
+				}
+				return
+
+			case currentView := <-a.renderCh:
+				if currentView == nil {
+					return
+				}
+
+				if currentProgram != nil {
+					currentProgram.Quit()
+					time.Sleep(50 * time.Millisecond)
+				}
+
+				clearTerminal()
+
+				currentProgram = tea.NewProgram(
+					currentView,
+					tea.WithContext(ctx),
+					tea.WithAltScreen(),
+				)
+
+				go func(p *tea.Program) {
+					if _, err := p.Run(); err != nil {
+						if !errors.Is(err, tea.ErrProgramKilled) {
+							a.logger.Errorf("failed to render view: %s", err)
+						}
+					}
+				}(currentProgram)
+			}
+		}
+	}()
+}
+
+func (a *App) onApplicationStateSwitched(currentView tea.Model) {
+	a.renderCh <- currentView
 }

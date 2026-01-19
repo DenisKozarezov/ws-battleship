@@ -9,7 +9,7 @@ type Config struct {
 }
 
 type AppConfig struct {
-	ServerHost   string `envconfig:"SERVER_HOST" default:"127.0.0.1:8080"`
+	Port         string `envconfig:"SERVER_PORT" default:"8080"`
 	IsDebugMode  bool   `envconfig:"DEBUG" default:"true"`
 	MouseEnabled bool   `envconfig:"ENABLE_MOUSE" default:"false"`
 }

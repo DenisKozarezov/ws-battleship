@@ -17,13 +17,6 @@ var (
 	helpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 )
 
-type View interface {
-	Init() tea.Cmd
-	Update(msg tea.Msg) (tea.Model, tea.Cmd)
-	FixedUpdate()
-	View() string
-}
-
 type GameView struct {
 	isLocalPlayerTurn bool
 	localPlayerID     string
@@ -134,25 +127,21 @@ func (v *GameView) EndGame() {
 }
 
 func (v *GameView) SetGameModel(gameModel *domain.GameModel) {
-	v.yourBoard.SetPlayer(gameModel.Players[v.localPlayerID])
-	v.boards[v.localPlayerID] = v.yourBoard
+	clear(v.boards)
 
 	for playerID, player := range gameModel.Players {
 		if playerID == v.localPlayerID {
-			continue
+			v.yourBoard.SetPlayer(gameModel.Players[v.localPlayerID])
+		} else {
+			v.enemyBoard.SetPlayer(player)
 		}
-		v.enemyBoard.SetPlayer(player)
 		v.boards[playerID] = v.enemyBoard
 	}
 }
 
 func (v *GameView) GiveTurnToPlayer(event events.PlayerTurnEvent, isLocalPlayer bool) error {
 	v.isLocalPlayerTurn = isLocalPlayer
-
-	if isLocalPlayer {
-		v.enemyBoard.SetSelectable(true)
-	}
-
+	v.enemyBoard.SetSelectable(isLocalPlayer)
 	v.turnTimerView.Reset(int(event.RemainingTime.Seconds()))
 	v.turnTimerView.Start()
 	return nil

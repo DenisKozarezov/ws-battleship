@@ -41,7 +41,7 @@ func (m *Match) onPlayerJoinedHandler(joinedClient websocket.Client) {
 		return
 	}
 
-	m.room.logger.Infof("player %s joined the match id=%s [players: %d]", player.String(), m.ID(), m.room.Capacity())
+	m.room.logger.Infof("player %s joined the match id=%s [players: %d]", player, m.ID(), m.room.Capacity())
 	if err := m.SendNotification(fmt.Sprintf("Player '%s' joined the game.", player.Nickname()), events.RoomNotificationType); err != nil {
 		m.logger.Error(err)
 	}
@@ -52,6 +52,8 @@ func (m *Match) onPlayerJoinedHandler(joinedClient websocket.Client) {
 }
 
 func (m *Match) onPlayerLeftHandler(leftClient websocket.Client) {
+	defer delete(m.players, leftClient.ID())
+
 	player := m.players[leftClient.ID()]
 
 	event, err := events.NewPlayerLeftEvent(player.Model)
@@ -65,7 +67,7 @@ func (m *Match) onPlayerLeftHandler(leftClient websocket.Client) {
 		return
 	}
 
-	m.room.logger.Infof("player %s left the match id=%s [players: %d]", player.String(), m.ID(), m.room.Capacity())
+	m.room.logger.Infof("player %s left the match id=%s [players: %d]", player, m.ID(), m.room.Capacity())
 	if err := m.SendNotification(fmt.Sprintf("Player '%s' left the game.", player.Nickname()), events.RoomNotificationType); err != nil {
 		m.logger.Error(err)
 	}
