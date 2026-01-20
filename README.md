@@ -13,7 +13,7 @@ Real-time multiplayer naval combat in classic way. Gaming programming patterns a
 Implemented Features:
 * Dedicated Go server for game logic and matchmaking
 * WebSocket connections for real-time sync
-* Terminal clients with interactive UI. No ReactJS, no Angular or any frontend. Just poor terminal.
+* Terminal clients with interactive UI. No ReactJS, no Angular or any frontend. Just pure terminal.
 
 ## Usage
 
